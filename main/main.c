@@ -15,6 +15,8 @@
 #include "esp_err.h"
 #include "nvs_flash.h"
 #include "hx711.h"
+#include "app_activity_led.h"
+#include "app_mdns.h"
 #include "app_web.h"
 #include "app_wifi.h"
 
@@ -59,7 +61,9 @@ void app_main(void)
     }
     ESP_ERROR_CHECK(nvs_err);
 
+    ESP_ERROR_CHECK(app_activity_led_start());
     ESP_ERROR_CHECK(app_wifi_start());
+    ESP_ERROR_CHECK(app_mdns_start());
     ESP_ERROR_CHECK(app_web_start());
 
     while (true) {

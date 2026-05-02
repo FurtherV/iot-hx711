@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "app_activity_led.h"
 #include "app_wifi.h"
 #include "esp_app_desc.h"
 #include "esp_check.h"
@@ -42,16 +43,19 @@ static esp_err_t send_embedded_file(httpd_req_t *req, const char *type, const un
 
 static esp_err_t index_get_handler(httpd_req_t *req)
 {
+    app_activity_led_pulse();
     return send_embedded_file(req, "text/html", webui_index_html_start, webui_index_html_end);
 }
 
 static esp_err_t script_get_handler(httpd_req_t *req)
 {
+    app_activity_led_pulse();
     return send_embedded_file(req, "application/javascript", webui_script_mjs_start, webui_script_mjs_end);
 }
 
 static esp_err_t style_get_handler(httpd_req_t *req)
 {
+    app_activity_led_pulse();
     return send_embedded_file(req, "text/css", webui_style_css_start, webui_style_css_end);
 }
 
@@ -62,6 +66,8 @@ static const char *bool_text(bool value)
 
 static esp_err_t info_get_handler(httpd_req_t *req)
 {
+    app_activity_led_pulse();
+
     app_wifi_status_t wifi;
     app_wifi_get_status(&wifi);
 
@@ -111,6 +117,8 @@ static esp_err_t info_get_handler(httpd_req_t *req)
 
 static esp_err_t wifi_get_handler(httpd_req_t *req)
 {
+    app_activity_led_pulse();
+
     app_wifi_status_t wifi;
     app_wifi_get_status(&wifi);
 
@@ -184,6 +192,8 @@ static void restart_task(void *arg)
 
 static esp_err_t wifi_post_handler(httpd_req_t *req)
 {
+    app_activity_led_pulse();
+
     if (req->content_len <= 0 || req->content_len >= APP_POST_BODY_MAX_LEN) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid request body");
         return ESP_FAIL;
@@ -198,6 +208,7 @@ static esp_err_t wifi_post_handler(httpd_req_t *req)
             return ESP_FAIL;
         }
         received += ret;
+        app_activity_led_pulse();
     }
 
     char ssid[APP_WIFI_SSID_MAX_LEN + 1] = {0};
@@ -224,6 +235,8 @@ static esp_err_t wifi_post_handler(httpd_req_t *req)
 
 static esp_err_t update_post_handler(httpd_req_t *req)
 {
+    app_activity_led_pulse();
+
     if (req->content_len <= 0) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Firmware body is empty");
         return ESP_FAIL;
@@ -263,6 +276,7 @@ static esp_err_t update_post_handler(httpd_req_t *req)
         }
 
         remaining -= received;
+        app_activity_led_pulse();
     }
 
     err = esp_ota_end(ota_handle);

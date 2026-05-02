@@ -23,4 +23,10 @@ menu "iot_hx711 configuration"
         help
             GPIO number used as HX711 data output (DT / DOUT).
 
+    config APP_STATUS_LED_GPIO
+        int "Status LED GPIO"
+        default 2
+        help
+            GPIO number connected to the on-board status LED.
+
 endmenu

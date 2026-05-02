@@ -80,3 +80,53 @@ No new external libraries are installed.
 WebUI code means frontend assets only; firmware HTTP/WiFi/OTA C code may live under main/.
 Perinet visual reference is treated as a general industrial dashboard cue; source checked: 
 https://perinet.io/en/news/product-updates/perinets-new-dashboard-container-real-time-and-historic-data-visualization-no-configuration-necessary
+
+## Iteration 2
+
+Configuration And Device Discovery Delta
+Summary
+Add project-specific sdkconfig options and small runtime helpers beyond the initial Web-IOT skeleton.
+
+Key Changes
+Add main/Kconfig.projbuild with custom project options for:
+initial provisioning SoftAP password
+HX711 SCK GPIO
+HX711 DT GPIO
+on-board status LED GPIO
+Use CONFIG_APP_WIFI_AP_PASSWORD for the provisioning SoftAP:
+empty value keeps the AP open
+non-empty value enables WPA2-PSK
+reject non-empty SoftAP passwords outside the ESP-IDF 8-63 character range
+Use default HX711 pin config values:
+CONFIG_APP_HX711_SCK_GPIO defaults to 18
+CONFIG_APP_HX711_DT_GPIO defaults to 19
+Store the confirmed on-board LED pin:
+CONFIG_APP_STATUS_LED_GPIO defaults to 2
+Add mDNS support:
+new app_mdns module
+advertise the HTTP service as http://iot-XXXXXX.local
+derive XXXXXX from the last three SoftAP MAC bytes, matching the iot-XXXXXX device naming pattern
+Add web activity LED behavior:
+new app_activity_led module
+configure CONFIG_APP_STATUS_LED_GPIO as output
+pulse the LED on web requests and while POST bodies are being received
+keep LED pulsing in a background task so HTTP handlers are not delayed
+
+Startup Order
+Keep show_greetings() intact.
+Keep show_greetings(); as the first instruction in app_main.
+After NVS init, start:
+activity LED
+WiFi
+mDNS
+web server
+
+Test Plan For Human Developer
+Codex must not run tests, builds, compile checks, or automatic dependency installs.
+Human developer should run the ESP-IDF build and flash flow.
+Human developer should verify:
+configured SoftAP password behavior
+HX711 GPIO values in menuconfig
+status LED GPIO default is 2
+web UI is reachable by IP and by http://iot-XXXXXX.local where supported by the client network
+LED pulses during web activity
