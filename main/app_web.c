@@ -65,6 +65,70 @@ static const char *bool_text(bool value)
     return value ? "true" : "false";
 }
 
+static const char *partition_type_text(esp_partition_type_t type)
+{
+    switch (type) {
+    case ESP_PARTITION_TYPE_APP:
+        return "app";
+    case ESP_PARTITION_TYPE_DATA:
+        return "data";
+    case ESP_PARTITION_TYPE_BOOTLOADER:
+        return "bootloader";
+    case ESP_PARTITION_TYPE_PARTITION_TABLE:
+        return "partition_table";
+    default:
+        return "unknown";
+    }
+}
+
+static void partition_subtype_text(const esp_partition_t *partition, char *out, size_t out_len)
+{
+    if (partition->type == ESP_PARTITION_TYPE_APP) {
+        if (partition->subtype == ESP_PARTITION_SUBTYPE_APP_FACTORY) {
+            strlcpy(out, "factory", out_len);
+        } else if (partition->subtype >= ESP_PARTITION_SUBTYPE_APP_OTA_MIN &&
+                   partition->subtype < ESP_PARTITION_SUBTYPE_APP_OTA_MAX) {
+            snprintf(out, out_len, "ota_%u", (unsigned)(partition->subtype - ESP_PARTITION_SUBTYPE_APP_OTA_MIN));
+        } else if (partition->subtype == ESP_PARTITION_SUBTYPE_APP_TEST) {
+            strlcpy(out, "test", out_len);
+        } else {
+            snprintf(out, out_len, "0x%02x", (unsigned)partition->subtype);
+        }
+    } else if (partition->type == ESP_PARTITION_TYPE_DATA) {
+        switch (partition->subtype) {
+        case ESP_PARTITION_SUBTYPE_DATA_OTA:
+            strlcpy(out, "ota", out_len);
+            break;
+        case ESP_PARTITION_SUBTYPE_DATA_PHY:
+            strlcpy(out, "phy", out_len);
+            break;
+        case ESP_PARTITION_SUBTYPE_DATA_NVS:
+            strlcpy(out, "nvs", out_len);
+            break;
+        case ESP_PARTITION_SUBTYPE_DATA_COREDUMP:
+            strlcpy(out, "coredump", out_len);
+            break;
+        case ESP_PARTITION_SUBTYPE_DATA_NVS_KEYS:
+            strlcpy(out, "nvs_keys", out_len);
+            break;
+        case ESP_PARTITION_SUBTYPE_DATA_FAT:
+            strlcpy(out, "fat", out_len);
+            break;
+        case ESP_PARTITION_SUBTYPE_DATA_SPIFFS:
+            strlcpy(out, "spiffs", out_len);
+            break;
+        case ESP_PARTITION_SUBTYPE_DATA_LITTLEFS:
+            strlcpy(out, "littlefs", out_len);
+            break;
+        default:
+            snprintf(out, out_len, "0x%02x", (unsigned)partition->subtype);
+            break;
+        }
+    } else {
+        snprintf(out, out_len, "0x%02x", (unsigned)partition->subtype);
+    }
+}
+
 static esp_err_t info_get_handler(httpd_req_t *req)
 {
     app_activity_led_pulse();
@@ -164,6 +228,75 @@ static esp_err_t sample_get_handler(httpd_req_t *req)
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Cache-Control", "no-store");
     return httpd_resp_sendstr(req, json);
+}
+
+static esp_err_t partitions_get_handler(httpd_req_t *req)
+{
+    app_activity_led_pulse();
+
+    const esp_partition_t *running = esp_ota_get_running_partition();
+    const esp_partition_t *boot = esp_ota_get_boot_partition();
+    const esp_partition_t *next_update = esp_ota_get_next_update_partition(NULL);
+    esp_partition_iterator_t iterator = esp_partition_find(
+        ESP_PARTITION_TYPE_ANY,
+        ESP_PARTITION_SUBTYPE_ANY,
+        NULL);
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+    esp_err_t err = httpd_resp_sendstr_chunk(req, "{\"partitions\":[");
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    bool first = true;
+    while (iterator != NULL) {
+        const esp_partition_t *partition = esp_partition_get(iterator);
+        char subtype[24];
+        partition_subtype_text(partition, subtype, sizeof(subtype));
+
+        char json[320];
+        int len = snprintf(json, sizeof(json),
+                           "%s{"
+                           "\"label\":\"%s\","
+                           "\"type\":\"%s\","
+                           "\"subtype\":\"%s\","
+                           "\"address\":%" PRIu32 ","
+                           "\"size\":%" PRIu32 ","
+                           "\"encrypted\":%s,"
+                           "\"running\":%s,"
+                           "\"boot\":%s,"
+                           "\"nextUpdate\":%s"
+                           "}",
+                           first ? "" : ",",
+                           partition->label,
+                           partition_type_text(partition->type),
+                           subtype,
+                           partition->address,
+                           partition->size,
+                           bool_text(partition->encrypted),
+                           bool_text(partition == running),
+                           bool_text(partition == boot),
+                           bool_text(partition == next_update));
+
+        if (len < 0 || len >= (int)sizeof(json)) {
+            esp_partition_iterator_release(iterator);
+            httpd_resp_sendstr_chunk(req, NULL);
+            return ESP_FAIL;
+        }
+
+        err = httpd_resp_sendstr_chunk(req, json);
+        if (err != ESP_OK) {
+            esp_partition_iterator_release(iterator);
+            return err;
+        }
+        first = false;
+        iterator = esp_partition_next(iterator);
+    }
+    esp_partition_iterator_release(iterator);
+
+    ESP_RETURN_ON_ERROR(httpd_resp_sendstr_chunk(req, "]}"), TAG, "Failed to finish partition response");
+    return httpd_resp_sendstr_chunk(req, NULL);
 }
 
 static bool extract_json_string(const char *json, const char *key, char *out, size_t out_len)
@@ -320,6 +453,7 @@ static esp_err_t update_post_handler(httpd_req_t *req)
 esp_err_t app_web_start(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    config.max_uri_handlers = 12;
     config.uri_match_fn = httpd_uri_match_wildcard;
 
     httpd_handle_t server = NULL;
@@ -335,6 +469,7 @@ esp_err_t app_web_start(void)
         {.uri = "/api/info", .method = HTTP_GET, .handler = info_get_handler},
         {.uri = "/api/wifi", .method = HTTP_GET, .handler = wifi_get_handler},
         {.uri = "/api/wifi", .method = HTTP_POST, .handler = wifi_post_handler},
+        {.uri = "/api/partitions", .method = HTTP_GET, .handler = partitions_get_handler},
         {.uri = "/sample", .method = HTTP_GET, .handler = sample_get_handler},
         {.uri = "/update", .method = HTTP_POST, .handler = update_post_handler},
     };

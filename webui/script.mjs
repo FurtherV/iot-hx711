@@ -1,5 +1,6 @@
 const state = {
   info: null,
+  partitions: [],
   sample: null,
 };
 
@@ -66,12 +67,100 @@ function renderSample(sample) {
   setText("#sampleMeta", `Seq ${sample.sequence_number ?? "-"} / Inc ${sample.incarnation ?? "-"}`);
 }
 
+function formatHex(value) {
+  return Number.isFinite(value) ? `0x${value.toString(16).toUpperCase()}` : "-";
+}
+
+function formatSize(value) {
+  if (!Number.isFinite(value)) {
+    return "-";
+  }
+  return `${(value / 1024).toLocaleString(undefined, { maximumFractionDigits: 0 })} KB`;
+}
+
+function partitionRoles(partition) {
+  const roles = [];
+  if (partition.running) {
+    roles.push("Running");
+  }
+  if (partition.boot) {
+    roles.push("Boot");
+  }
+  if (partition.nextUpdate) {
+    roles.push("Next OTA");
+  }
+  if (partition.encrypted) {
+    roles.push("Encrypted");
+  }
+  return roles;
+}
+
+function renderPartitions(payload) {
+  state.partitions = payload.partitions || [];
+
+  const rows = $("#partitionRows");
+  rows.innerHTML = "";
+
+  if (state.partitions.length === 0) {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 6;
+    cell.textContent = "No partitions reported";
+    row.append(cell);
+    rows.append(row);
+    setText("#partitionMessage", "No partitions reported.");
+    return;
+  }
+
+  for (const partition of state.partitions) {
+    const row = document.createElement("tr");
+    const values = [
+      partition.label,
+      partition.type,
+      partition.subtype,
+      formatHex(partition.address),
+      formatSize(partition.size),
+    ];
+
+    for (const value of values) {
+      const cell = document.createElement("td");
+      cell.textContent = value ?? "-";
+      row.append(cell);
+    }
+
+    const roleCell = document.createElement("td");
+    const roles = partitionRoles(partition);
+    if (roles.length === 0) {
+      roleCell.textContent = "-";
+    } else {
+      for (const role of roles) {
+        const badge = document.createElement("span");
+        badge.className = "role-badge";
+        badge.textContent = role;
+        roleCell.append(badge);
+      }
+    }
+    row.append(roleCell);
+    rows.append(row);
+  }
+
+  setText("#partitionMessage", `${state.partitions.length} partitions detected.`);
+}
+
 async function refreshInfo() {
   const response = await fetch("/api/info", { cache: "no-store" });
   if (!response.ok) {
     throw new Error("Unable to load device information");
   }
   renderInfo(await response.json());
+}
+
+async function refreshPartitions() {
+  const response = await fetch("/api/partitions", { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error("Unable to load partition table");
+  }
+  renderPartitions(await response.json());
 }
 
 async function refreshSample() {
@@ -178,5 +267,11 @@ window.addEventListener("DOMContentLoaded", async () => {
   } catch (error) {
     setText("#connectionStatus", "Unavailable");
     setText("#otaMessage", error.message);
+  }
+
+  try {
+    await refreshPartitions();
+  } catch (error) {
+    setText("#partitionMessage", error.message);
   }
 });

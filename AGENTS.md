@@ -196,3 +196,51 @@ grams clamp at 0 g below tare and 5000 g above the configured maximum
 sequence_number increases over time after successful samples
 incarnation increases after reboot and resets after NVS erase
 WebUI home screen updates the sample value every second
+
+## Iteration 4
+
+Update Tab, Partition Overview, And OTA Rollback
+Summary
+Move firmware update controls into a dedicated Update tab, expose the runtime partition table through the firmware API, and enable OTA rollback with a 60-second validation window.
+
+Key Changes
+WebUI:
+add Update tab to the primary tab navigation
+move the firmware upload form from Home to Update
+keep Home focused on live status and sample metrics
+add a partition table to Update
+show partition label, type, subtype, offset, size, and role/status badges
+continue using POST /update for firmware uploads
+
+Partition API:
+add GET /api/partitions
+enumerate partitions at runtime with esp_partition_find
+return label, type, subtype, address, size, encrypted, running, boot, and nextUpdate
+compare partitions with esp_ota_get_running_partition, esp_ota_get_boot_partition, and esp_ota_get_next_update_partition
+increase HTTP server max_uri_handlers to 12 so all routes can register
+
+OTA rollback:
+enable CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE in sdkconfig.defaults
+after OTA, booted images remain in ESP_OTA_IMG_PENDING_VERIFY during startup
+after NVS, activity LED, sample service, WiFi, mDNS, and web server start, begin a 60-second validation guard
+only after the guard delay survives, call esp_ota_mark_app_valid_cancel_rollback
+if the app crashes or reboots before validation, bootloader rollback can return to the previous valid OTA slot
+
+Static asset note:
+webui/index.html, script.mjs, and style.css are embedded raw through target_add_binary_data
+assets are not minified or gzip-compressed yet
+gzip serving is possible later by embedding pre-compressed files and setting Content-Encoding: gzip, but current asset size is small enough to keep the simpler raw setup
+
+Test Plan For Human Developer
+Codex must not run tests, builds, compile checks, or automatic dependency installs.
+Human developer should run the ESP-IDF build and flash flow.
+Human developer should verify:
+Home no longer contains firmware update controls
+Update tab contains firmware upload controls
+firmware upload still works through POST /update
+/api/partitions returns valid JSON
+Update tab shows nvs, otadata, phy_init, ota_0, and ota_1
+running, boot, and next OTA roles are shown correctly
+HTTP server starts without ESP_ERR_HTTPD_HANDLERS_FULL
+after OTA, a new image rolls back if it crashes before the 60-second validation window completes
+after OTA, a healthy image is marked valid after surviving the validation window

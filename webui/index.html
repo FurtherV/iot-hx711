@@ -19,6 +19,7 @@
     <nav class="tabs" aria-label="Primary">
       <button class="tab active" data-tab="home" type="button">Home</button>
       <button class="tab" data-tab="information" type="button">Information</button>
+      <button class="tab" data-tab="update" type="button">Update</button>
       <button class="tab" data-tab="configuration" type="button">Configuration</button>
     </nav>
 
@@ -43,8 +44,41 @@
             <p id="sampleMeta">Waiting for sample</p>
           </article>
         </div>
+      </section>
 
+      <section class="panel" id="information">
         <article class="card">
+          <h2>Device Information</h2>
+          <dl class="details" id="details"></dl>
+        </article>
+      </section>
+
+      <section class="panel" id="update">
+        <article class="card">
+          <h2>Partition Structure</h2>
+          <div class="table-wrap">
+            <table class="partition-table">
+              <thead>
+                <tr>
+                  <th>Label</th>
+                  <th>Type</th>
+                  <th>Subtype</th>
+                  <th>Offset</th>
+                  <th>Size</th>
+                  <th>Role</th>
+                </tr>
+              </thead>
+              <tbody id="partitionRows">
+                <tr>
+                  <td colspan="6">Loading partitions</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="message" id="partitionMessage">Reading partition table.</p>
+        </article>
+
+        <article class="card update-card">
           <div class="card-heading">
             <div>
               <h2>Firmware Update</h2>
@@ -59,13 +93,6 @@
             <button class="primary" type="submit">Upload</button>
             <p class="message" id="otaMessage">Idle</p>
           </form>
-        </article>
-      </section>
-
-      <section class="panel" id="information">
-        <article class="card">
-          <h2>Device Information</h2>
-          <dl class="details" id="details"></dl>
         </article>
       </section>
 

@@ -6,6 +6,7 @@
 
 #include <stdio.h>
 #include <inttypes.h>
+#include <stdbool.h>
 #include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -13,6 +14,8 @@
 #include "esp_flash.h"
 #include "esp_system.h"
 #include "esp_err.h"
+#include "esp_log.h"
+#include "esp_ota_ops.h"
 #include "nvs_flash.h"
 #include "hx711.h"
 #include "app_activity_led.h"
@@ -20,6 +23,10 @@
 #include "app_sample.h"
 #include "app_web.h"
 #include "app_wifi.h"
+
+static const char *TAG = "main";
+
+#define APP_OTA_VALIDATION_DELAY_MS 60000
 
 void show_greetings(void)
 {
@@ -51,6 +58,60 @@ void show_greetings(void)
     printf("Minimum free heap size: %" PRIu32 " bytes\n", esp_get_minimum_free_heap_size());
 }
 
+static bool running_app_pending_verify(void)
+{
+#ifdef CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE
+    const esp_partition_t *running = esp_ota_get_running_partition();
+    esp_ota_img_states_t state = ESP_OTA_IMG_UNDEFINED;
+    esp_err_t err = esp_ota_get_state_partition(running, &state);
+
+    if (err == ESP_ERR_NOT_FOUND) {
+        return false;
+    }
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Failed to read OTA state: %s", esp_err_to_name(err));
+        return false;
+    }
+
+    return state == ESP_OTA_IMG_PENDING_VERIFY;
+#else
+    return false;
+#endif
+}
+
+static void mark_running_app_valid_task(void *arg)
+{
+#ifdef CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE
+    ESP_LOGI(TAG, "OTA image pending verification; validating after %d ms", APP_OTA_VALIDATION_DELAY_MS);
+    vTaskDelay(pdMS_TO_TICKS(APP_OTA_VALIDATION_DELAY_MS));
+
+    if (running_app_pending_verify()) {
+        esp_err_t err = esp_ota_mark_app_valid_cancel_rollback();
+        if (err == ESP_OK) {
+            ESP_LOGI(TAG, "OTA image marked valid; rollback cancelled");
+        } else {
+            ESP_LOGE(TAG, "Failed to mark OTA image valid: %s", esp_err_to_name(err));
+        }
+    }
+#endif
+
+    vTaskDelete(NULL);
+}
+
+static void start_ota_validation_guard(void)
+{
+#ifdef CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE
+    if (!running_app_pending_verify()) {
+        return;
+    }
+
+    BaseType_t created = xTaskCreate(mark_running_app_valid_task, "ota_valid_task", 4096, NULL, 5, NULL);
+    if (created != pdPASS) {
+        ESP_LOGE(TAG, "Failed to start OTA validation task");
+    }
+#endif
+}
+
 void app_main(void)
 {
     show_greetings();
@@ -67,6 +128,7 @@ void app_main(void)
     ESP_ERROR_CHECK(app_wifi_start());
     ESP_ERROR_CHECK(app_mdns_start());
     ESP_ERROR_CHECK(app_web_start());
+    start_ota_validation_guard();
 
     while (true) {
         vTaskDelay(pdMS_TO_TICKS(1000));
