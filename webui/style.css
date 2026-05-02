@@ -114,7 +114,7 @@ main {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 16px;
 }
@@ -141,6 +141,18 @@ main {
   margin-top: 10px;
   font-size: 1.35rem;
   overflow-wrap: anywhere;
+}
+
+.metric small {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.sample-metric p {
+  min-height: 20px;
+  margin: 6px 0 0;
+  font-size: 0.84rem;
 }
 
 .card-heading {
@@ -242,6 +254,12 @@ dt {
 dd {
   margin: 0;
   overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 720px) {

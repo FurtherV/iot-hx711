@@ -1,5 +1,6 @@
 const state = {
   info: null,
+  sample: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -56,12 +57,42 @@ function renderInfo(info) {
   }
 }
 
+function renderSample(sample) {
+  state.sample = sample;
+  const firstValue = sample.data?.[0];
+
+  setText("#sampleValue", Number.isFinite(firstValue?.value) ? firstValue.value.toLocaleString(undefined, { maximumFractionDigits: 1 }) : "-");
+  setText("#sampleUnit", firstValue?.unit || "g");
+  setText("#sampleMeta", `Seq ${sample.sequence_number ?? "-"} / Inc ${sample.incarnation ?? "-"}`);
+}
+
 async function refreshInfo() {
   const response = await fetch("/api/info", { cache: "no-store" });
   if (!response.ok) {
     throw new Error("Unable to load device information");
   }
   renderInfo(await response.json());
+}
+
+async function refreshSample() {
+  const response = await fetch("/sample", { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error("Sample unavailable");
+  }
+  renderSample(await response.json());
+}
+
+function setupSamplePolling() {
+  const poll = async () => {
+    try {
+      await refreshSample();
+    } catch (error) {
+      setText("#sampleMeta", state.sample ? "Sample unavailable" : error.message);
+    }
+  };
+
+  poll();
+  setInterval(poll, 1000);
 }
 
 function setupTabs() {
@@ -140,6 +171,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   setupTabs();
   setupFirmwareUpload();
   setupWifiForm();
+  setupSamplePolling();
 
   try {
     await refreshInfo();

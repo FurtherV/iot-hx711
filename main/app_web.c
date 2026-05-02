@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "app_activity_led.h"
+#include "app_sample.h"
 #include "app_wifi.h"
 #include "esp_app_desc.h"
 #include "esp_check.h"
@@ -145,6 +146,23 @@ static esp_err_t wifi_get_handler(httpd_req_t *req)
     }
 
     httpd_resp_set_type(req, "application/json");
+    return httpd_resp_sendstr(req, json);
+}
+
+static esp_err_t sample_get_handler(httpd_req_t *req)
+{
+    app_activity_led_pulse();
+
+    char json[256];
+    esp_err_t err = app_sample_get_json(json, sizeof(json));
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to read cached sample: %s", esp_err_to_name(err));
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Sample unavailable");
+        return ESP_FAIL;
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
     return httpd_resp_sendstr(req, json);
 }
 
@@ -317,6 +335,7 @@ esp_err_t app_web_start(void)
         {.uri = "/api/info", .method = HTTP_GET, .handler = info_get_handler},
         {.uri = "/api/wifi", .method = HTTP_GET, .handler = wifi_get_handler},
         {.uri = "/api/wifi", .method = HTTP_POST, .handler = wifi_post_handler},
+        {.uri = "/sample", .method = HTTP_GET, .handler = sample_get_handler},
         {.uri = "/update", .method = HTTP_POST, .handler = update_post_handler},
     };
 

@@ -130,3 +130,69 @@ HX711 GPIO values in menuconfig
 status LED GPIO default is 2
 web UI is reachable by IP and by http://iot-XXXXXX.local where supported by the client network
 LED pulses during web activity
+
+## Iteration 3
+
+HX711 Sampling And Calibrated Sample Output
+Summary
+Add the HX711 runtime sampler, expose cached sample data through GET /sample, and show the current sample on the WebUI home screen.
+
+Key Changes
+Add app_sample module:
+initialize esp-idf-lib/hx711 with CONFIG_APP_HX711_DT_GPIO and CONFIG_APP_HX711_SCK_GPIO
+use HX711_GAIN_A_64
+read averaged HX711 samples once per second with hx711_read_average
+cache the JSON representation of the latest successful sample
+protect cached JSON with a FreeRTOS mutex
+do not advance sequence_number on failed HX711 reads
+
+Sample identity:
+store system incarnation in NVS namespace app_state, key incarnation
+increment incarnation once on every boot after NVS init
+factory reset / NVS erase naturally resets incarnation
+sequence_number starts at 0 on boot and increments on each successful sample
+
+Calibration:
+empty-scale raw offset is -171000
+2.5 kg calibration raw value is 224622
+calibration span is 395622 raw counts for 2500 g
+convert raw readings to grams with fixed-point math
+clamp reported grams to the 0.0 to 5000.0 g range
+
+GET /sample returns JSON with multiple data values:
+{
+"incarnation": NUMBER,
+"sequence_number": NUMBER,
+"data": [
+{ "value": NUMBER, "unit": "g" },
+{ "value": NUMBER, "unit": "raw" }
+]
+}
+
+Startup Order
+Keep show_greetings() intact.
+Keep show_greetings(); as the first instruction in app_main.
+After NVS init, start:
+activity LED
+sample service
+WiFi
+mDNS
+web server
+
+WebUI
+Poll GET /sample every second with cache: "no-store".
+Show the first data value on the Home screen, which is calibrated grams.
+Show sequence_number and incarnation near the sample value.
+Keep showing the previous value if polling temporarily fails.
+
+Test Plan For Human Developer
+Codex must not run tests, builds, compile checks, or automatic dependency installs.
+Human developer should run the ESP-IDF build and flash flow.
+Human developer should verify:
+/sample returns valid JSON with both g and raw data entries
+grams read around 0 g with an empty scale
+grams read around 2500 g with the calibration weight
+grams clamp at 0 g below tare and 5000 g above the configured maximum
+sequence_number increases over time after successful samples
+incarnation increases after reboot and resets after NVS erase
+WebUI home screen updates the sample value every second
