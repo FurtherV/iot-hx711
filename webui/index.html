@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>iot_hx711</title>
+    <link rel="stylesheet" href="/style.css">
+    <script type="module" src="/script.mjs"></script>
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Edge Device</p>
+        <h1>iot_hx711</h1>
+      </div>
+      <div class="status-pill" id="connectionStatus">Starting</div>
+    </header>
+
+    <nav class="tabs" aria-label="Primary">
+      <button class="tab active" data-tab="home" type="button">Home</button>
+      <button class="tab" data-tab="information" type="button">Information</button>
+      <button class="tab" data-tab="configuration" type="button">Configuration</button>
+    </nav>
+
+    <main>
+      <section class="panel active" id="home" aria-labelledby="homeTab">
+        <div class="grid">
+          <article class="card metric">
+            <span>Network</span>
+            <strong id="networkMode">Unknown</strong>
+          </article>
+          <article class="card metric">
+            <span>IP Address</span>
+            <strong id="ipAddress">-</strong>
+          </article>
+          <article class="card metric">
+            <span>Partition</span>
+            <strong id="partition">-</strong>
+          </article>
+        </div>
+
+        <article class="card">
+          <div class="card-heading">
+            <div>
+              <h2>Firmware Update</h2>
+              <p>Upload an ESP-IDF application binary.</p>
+            </div>
+          </div>
+          <form id="otaForm" class="form">
+            <label class="file-input">
+              <input id="firmwareFile" type="file" accept=".bin,application/octet-stream">
+              <span id="firmwareName">Choose firmware .bin</span>
+            </label>
+            <button class="primary" type="submit">Upload</button>
+            <p class="message" id="otaMessage">Idle</p>
+          </form>
+        </article>
+      </section>
+
+      <section class="panel" id="information">
+        <article class="card">
+          <h2>Device Information</h2>
+          <dl class="details" id="details"></dl>
+        </article>
+      </section>
+
+      <section class="panel" id="configuration">
+        <article class="card">
+          <h2>WiFi Configuration</h2>
+          <form id="wifiForm" class="form">
+            <label>
+              <span>SSID</span>
+              <input id="ssid" name="ssid" type="text" maxlength="32" autocomplete="off" required>
+            </label>
+            <label>
+              <span>Password</span>
+              <input id="password" name="password" type="password" maxlength="64" autocomplete="current-password">
+            </label>
+            <button class="primary" type="submit">Save and Restart</button>
+            <p class="message" id="wifiMessage">Credentials are stored on the device.</p>
+          </form>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

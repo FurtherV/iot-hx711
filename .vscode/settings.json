@@ -13,5 +13,6 @@
     "--background-index",
     "--query-driver=**",
     "--compile-commands-dir=/home/alexander/esp32/iot_hx711/build"
-  ]
+  ],
+  "idf.flashType": "UART"
 }

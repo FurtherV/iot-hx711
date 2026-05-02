@@ -1,0 +1,26 @@
+menu "iot_hx711 configuration"
+
+    config APP_WIFI_AP_PASSWORD
+        string "Initial provisioning AP password"
+        default ""
+        help
+            Password for the provisioning SoftAP used before station
+            credentials have been saved.
+
+            Leave empty to start an open provisioning AP. Non-empty values
+            must be 8 to 63 characters because ESP-IDF SoftAP WPA/WPA2
+            authentication requires that password length.
+
+    config APP_HX711_SCK_GPIO
+        int "HX711 SCK GPIO"
+        default 18
+        help
+            GPIO number used as HX711 serial clock (SCK / PD_SCK).
+
+    config APP_HX711_DT_GPIO
+        int "HX711 DT GPIO"
+        default 19
+        help
+            GPIO number used as HX711 data output (DT / DOUT).
+
+endmenu
