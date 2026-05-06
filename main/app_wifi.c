@@ -72,6 +72,26 @@ esp_err_t app_wifi_save_credentials(const char *ssid, const char *password)
     return err;
 }
 
+esp_err_t app_wifi_forget_credentials(void)
+{
+    nvs_handle_t nvs;
+    esp_err_t err = nvs_open(APP_WIFI_NAMESPACE, NVS_READWRITE, &nvs);
+    if (err == ESP_ERR_NVS_NOT_FOUND) {
+        return ESP_OK;
+    }
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    err = nvs_erase_all(nvs);
+    if (err == ESP_OK) {
+        err = nvs_commit(nvs);
+    }
+
+    nvs_close(nvs);
+    return err;
+}
+
 static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {

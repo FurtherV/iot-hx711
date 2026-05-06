@@ -244,3 +244,54 @@ running, boot, and next OTA roles are shown correctly
 HTTP server starts without ESP_ERR_HTTPD_HANDLERS_FULL
 after OTA, a new image rolls back if it crashes before the 60-second validation window completes
 after OTA, a healthy image is marked valid after surviving the validation window
+
+## Iteration 5
+
+WiFi Forget Control And Active-Low Activity LED
+Summary
+Add a WebUI control for clearing stored WiFi credentials without erasing the rest of NVS, and invert the activity LED polarity for active-low hardware.
+
+Key Changes
+WiFi reset:
+add app_wifi_forget_credentials()
+erase only the NVS namespace wifi_config
+leave app_state, OTA data, calibration assumptions, and other NVS namespaces untouched
+return success when wifi_config does not exist
+
+HTTP API:
+add POST /api/wifi/forget
+call app_wifi_forget_credentials()
+return JSON { "ok": true, "restarting": true } on success
+restart after a short delay using the existing restart_task behavior
+keep POST /api/wifi unchanged for saving replacement credentials
+
+WebUI:
+add a Forget WiFi section to the Configuration tab
+add a Forget and Restart button
+show a browser confirmation before sending the request
+call fetch("/api/wifi/forget", { method: "POST" })
+show success or error status text in the Configuration tab
+
+Activity LED:
+invert app_activity_led polarity
+set APP_ACTIVITY_LED_ON_LEVEL to 0
+set APP_ACTIVITY_LED_OFF_LEVEL to 1
+initialize the configured LED GPIO to the off level
+preserve the existing activity pulse timing and background task behavior
+
+Startup Order
+Keep show_greetings() intact.
+Keep show_greetings(); as the first instruction in app_main.
+No startup order changes are required for this iteration.
+
+Test Plan For Human Developer
+Codex must not run tests, builds, compile checks, or automatic dependency installs.
+Human developer should run the ESP-IDF build and flash flow.
+Human developer should verify:
+Configuration tab shows Forget WiFi
+clicking Forget and Restart prompts for confirmation
+confirming clears stored WiFi credentials and restarts the device
+after restart, the device starts provisioning SoftAP when no credentials remain
+existing Save and Restart WiFi credential flow still works
+activity LED is idle at the configured off level
+activity LED pulses with active-low polarity during web requests and POST body handling

@@ -22,6 +22,7 @@ typedef struct {
 
 esp_err_t app_wifi_start(void);
 esp_err_t app_wifi_save_credentials(const char *ssid, const char *password);
+esp_err_t app_wifi_forget_credentials(void);
 void app_wifi_get_status(app_wifi_status_t *status);
 
 #ifdef __cplusplus

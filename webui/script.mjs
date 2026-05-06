@@ -254,6 +254,26 @@ function setupWifiForm() {
 
     message.textContent = "Credentials saved. Device is restarting.";
   });
+
+  $("#forgetWifiButton").addEventListener("click", async () => {
+    const forgetMessage = $("#forgetWifiMessage");
+
+    if (!confirm("Forget stored WiFi credentials and restart the device?")) {
+      return;
+    }
+
+    forgetMessage.textContent = "Forgetting credentials...";
+    const response = await fetch("/api/wifi/forget", {
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      forgetMessage.textContent = await response.text();
+      return;
+    }
+
+    forgetMessage.textContent = "Credentials forgotten. Device is restarting.";
+  });
 }
 
 window.addEventListener("DOMContentLoaded", async () => {

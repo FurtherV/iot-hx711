@@ -384,6 +384,23 @@ static esp_err_t wifi_post_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t wifi_forget_post_handler(httpd_req_t *req)
+{
+    app_activity_led_pulse();
+
+    esp_err_t err = app_wifi_forget_credentials();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to forget WiFi credentials: %s", esp_err_to_name(err));
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to forget credentials");
+        return ESP_FAIL;
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"ok\":true,\"restarting\":true}");
+    xTaskCreate(restart_task, "restart_task", 2048, NULL, 5, NULL);
+    return ESP_OK;
+}
+
 static esp_err_t update_post_handler(httpd_req_t *req)
 {
     app_activity_led_pulse();
@@ -469,6 +486,7 @@ esp_err_t app_web_start(void)
         {.uri = "/api/info", .method = HTTP_GET, .handler = info_get_handler},
         {.uri = "/api/wifi", .method = HTTP_GET, .handler = wifi_get_handler},
         {.uri = "/api/wifi", .method = HTTP_POST, .handler = wifi_post_handler},
+        {.uri = "/api/wifi/forget", .method = HTTP_POST, .handler = wifi_forget_post_handler},
         {.uri = "/api/partitions", .method = HTTP_GET, .handler = partitions_get_handler},
         {.uri = "/sample", .method = HTTP_GET, .handler = sample_get_handler},
         {.uri = "/update", .method = HTTP_POST, .handler = update_post_handler},
