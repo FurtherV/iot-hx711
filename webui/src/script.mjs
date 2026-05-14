@@ -360,7 +360,6 @@ function activateTab(tabId, persist = true) {
   tab.classList.add("active");
   panel.classList.add("active");
   setText("#screenTitle", tab.dataset.title);
-  setText("#screenFooter", "");
 
   if (persist) {
     storeTab(tabId);

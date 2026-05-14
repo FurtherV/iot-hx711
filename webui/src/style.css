@@ -91,7 +91,7 @@ input {
   gap: 18px;
   width: min(1180px, calc(100% - 40px));
   margin: 0 auto;
-  padding: 28px 0 24px;
+  padding: 28px 0 76px;
 }
 
 .screen-logo {
@@ -151,9 +151,36 @@ h2 {
 }
 
 .screen-footer {
-  min-height: 24px;
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 240px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 10px 20px;
+  border-top: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 -8px 22px rgba(38, 43, 52, 0.08);
   color: var(--muted);
   font-size: 0.9rem;
+  text-align: center;
+}
+
+.screen-footer a {
+  color: var(--accent-dark);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.screen-footer a:hover {
+  text-decoration: underline;
+}
+
+.footer-copy {
+  margin: 0;
 }
 
 .panel {
@@ -482,6 +509,10 @@ input:focus {
 
   .workspace {
     width: min(100% - 28px, 1180px);
+  }
+
+  .screen-footer {
+    left: 0;
   }
 
   .two-column {

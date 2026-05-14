@@ -4,11 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
-    "build": "vite build && node scripts/gzip-dist.mjs",
-    "preview": "vite preview --host 127.0.0.1"
+    "dev": "npm run docs:build && vite --host 127.0.0.1",
+    "build": "vite build && npm run docs:build && node scripts/gzip-dist.mjs",
+    "docs:build": "redocly build-docs ../api/openapi.yaml --output=dist/api.html --title \"iot_hx711 REST API\" --disableGoogleFont",
+    "docs:lint": "redocly lint ../api/openapi.yaml",
+    "preview": "npm run build && vite preview --host 127.0.0.1"
   },
   "devDependencies": {
+    "@redocly/cli": "^2.30.6",
     "vite": "^5.4.0"
   },
   "dependencies": {

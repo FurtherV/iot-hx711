@@ -1,0 +1,458 @@
+openapi: 3.1.0
+info:
+  title: iot_hx711 REST API
+  version: 0.1.0
+  license:
+    name: Not specified
+    identifier: LicenseRef-NotSpecified
+  description: |
+    HTTP API for the iot_hx711 ESP32 firmware.
+
+    The firmware uses root-level paths and currently has no authentication.
+    OTA upload through `/update` is unauthenticated, so only expose the
+    device on trusted networks.
+servers:
+  - url: /
+security: []
+tags:
+  - name: Device
+    description: Device status, partition, reboot, and reset operations.
+  - name: WiFi
+    description: WiFi status and credential configuration operations.
+  - name: Sampling
+    description: HX711 sample data and sampling configuration operations.
+  - name: Update
+    description: Firmware update operations.
+paths:
+  /info:
+    get:
+      tags:
+        - Device
+      operationId: getInfo
+      summary: Get device, build, heap, partition, and WiFi summary.
+      responses:
+        "200":
+          description: Device information.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Info"
+        "4XX":
+          $ref: "#/components/responses/BadRequest"
+  /wifi:
+    get:
+      tags:
+        - WiFi
+      operationId: getWifi
+      summary: Get WiFi status, stored credentials, and scanned SSID suggestions.
+      responses:
+        "200":
+          description: WiFi status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WifiStatus"
+        "4XX":
+          $ref: "#/components/responses/BadRequest"
+    post:
+      tags:
+        - WiFi
+      operationId: saveWifi
+      summary: Save WiFi credentials and restart.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WifiCredentials"
+      responses:
+        "200":
+          description: Credentials were saved and the device is restarting.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestartResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/ServerError"
+  /wifi/reset:
+    post:
+      tags:
+        - WiFi
+      operationId: resetWifi
+      summary: Clear stored WiFi credentials and restart.
+      responses:
+        "200":
+          description: WiFi credentials were cleared and the device is restarting.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestartResponse"
+        "4XX":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/ServerError"
+  /partitions:
+    get:
+      tags:
+        - Device
+      operationId: getPartitions
+      summary: Get runtime partition table and OTA roles.
+      responses:
+        "200":
+          description: Runtime partition table.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - partitions
+                properties:
+                  partitions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Partition"
+        "4XX":
+          $ref: "#/components/responses/BadRequest"
+  /config:
+    get:
+      tags:
+        - Sampling
+      operationId: getConfig
+      summary: Get current configurable values.
+      responses:
+        "200":
+          description: Current configuration.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Config"
+        "4XX":
+          $ref: "#/components/responses/BadRequest"
+  /config/sample:
+    post:
+      tags:
+        - Sampling
+      operationId: saveSampleConfig
+      summary: Save sample interval and restart.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SampleConfigRequest"
+      responses:
+        "200":
+          description: Sample interval was saved and the device is restarting.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestartResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/ServerError"
+  /sample:
+    get:
+      tags:
+        - Sampling
+      operationId: getSample
+      summary: Get the latest cached HX711 sample.
+      responses:
+        "200":
+          description: Latest cached sample.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sample"
+        "4XX":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/ServerError"
+  /update:
+    post:
+      tags:
+        - Update
+      operationId: uploadFirmware
+      summary: Upload a raw firmware binary through OTA and restart.
+      description: This endpoint is currently unauthenticated.
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: Firmware was accepted and the device is restarting.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestartResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/ServerError"
+  /reboot:
+    post:
+      tags:
+        - Device
+      operationId: rebootDevice
+      summary: Restart the device.
+      responses:
+        "200":
+          description: Device is restarting.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestartResponse"
+        "4XX":
+          $ref: "#/components/responses/BadRequest"
+  /config/reset:
+    post:
+      tags:
+        - Device
+      operationId: resetConfig
+      summary: Erase stored configuration and restart.
+      responses:
+        "200":
+          description: Stored configuration is being reset and the device is restarting.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfigResetResponse"
+        "4XX":
+          $ref: "#/components/responses/BadRequest"
+components:
+  responses:
+    BadRequest:
+      description: Invalid request.
+      content:
+        text/plain:
+          schema:
+            type: string
+    ServerError:
+      description: Request failed.
+      content:
+        text/plain:
+          schema:
+            type: string
+  schemas:
+    Info:
+      type: object
+      required:
+        - appName
+        - appVersion
+        - idfVersion
+        - target
+        - freeHeap
+        - minFreeHeap
+        - partition
+        - wifi
+      properties:
+        appName:
+          type: string
+          example: iot_hx711
+        appVersion:
+          type: string
+          example: local-dev
+        idfVersion:
+          type: string
+          example: v6.0.1
+        target:
+          type: string
+          example: esp32
+        freeHeap:
+          type: integer
+          minimum: 0
+          example: 184320
+        minFreeHeap:
+          type: integer
+          minimum: 0
+          example: 151552
+        partition:
+          type: string
+          example: ota_0
+        wifi:
+          $ref: "#/components/schemas/WifiSummary"
+    WifiSummary:
+      type: object
+      required:
+        - hasCredentials
+        - connected
+        - softapActive
+        - ssid
+        - ip
+        - apSsid
+      properties:
+        hasCredentials:
+          type: boolean
+        connected:
+          type: boolean
+        softapActive:
+          type: boolean
+        ssid:
+          type: string
+          maxLength: 32
+        ip:
+          type: string
+          maxLength: 15
+          example: 192.168.1.91
+        apSsid:
+          type: string
+          maxLength: 32
+          example: iot-ABCDEF
+    WifiStatus:
+      allOf:
+        - $ref: "#/components/schemas/WifiSummary"
+        - type: object
+          required:
+            - password
+            - availableSsids
+          properties:
+            password:
+              type: string
+              maxLength: 64
+            availableSsids:
+              type: array
+              maxItems: 16
+              items:
+                type: string
+                maxLength: 32
+    WifiCredentials:
+      type: object
+      required:
+        - ssid
+        - password
+      properties:
+        ssid:
+          type: string
+          minLength: 1
+          maxLength: 32
+        password:
+          type: string
+          maxLength: 64
+    Partition:
+      type: object
+      required:
+        - label
+        - type
+        - subtype
+        - address
+        - size
+        - encrypted
+        - running
+        - boot
+        - nextUpdate
+      properties:
+        label:
+          type: string
+          example: ota_0
+        type:
+          type: string
+          example: app
+        subtype:
+          type: string
+          example: ota_0
+        address:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 0
+        encrypted:
+          type: boolean
+        running:
+          type: boolean
+        boot:
+          type: boolean
+        nextUpdate:
+          type: boolean
+    Config:
+      type: object
+      required:
+        - sampleIntervalMs
+        - sampleIntervalMinMs
+        - sampleIntervalMaxMs
+      properties:
+        sampleIntervalMs:
+          type: integer
+          minimum: 100
+          maximum: 10000
+          example: 1000
+        sampleIntervalMinMs:
+          type: integer
+          example: 100
+        sampleIntervalMaxMs:
+          type: integer
+          example: 10000
+    SampleConfigRequest:
+      type: object
+      required:
+        - sampleIntervalMs
+      properties:
+        sampleIntervalMs:
+          type: integer
+          minimum: 100
+          maximum: 10000
+          example: 1000
+    Sample:
+      type: object
+      required:
+        - incarnation
+        - sequence_number
+        - data
+      properties:
+        incarnation:
+          type: integer
+          minimum: 0
+        sequence_number:
+          type: integer
+          minimum: 0
+        data:
+          type: array
+          minItems: 2
+          items:
+            $ref: "#/components/schemas/SampleValue"
+          example:
+            - value: 2498.6
+              unit: g
+            - value: 224401
+              unit: raw
+    SampleValue:
+      type: object
+      required:
+        - value
+        - unit
+      properties:
+        value:
+          type: number
+        unit:
+          type: string
+          enum:
+            - g
+            - raw
+    RestartResponse:
+      type: object
+      required:
+        - ok
+        - restarting
+      properties:
+        ok:
+          type: boolean
+          const: true
+        restarting:
+          type: boolean
+          const: true
+    ConfigResetResponse:
+      allOf:
+        - $ref: "#/components/schemas/RestartResponse"
+        - type: object
+          required:
+            - resetting
+          properties:
+            resetting:
+              type: boolean
+              const: true

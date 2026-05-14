@@ -47,13 +47,23 @@ Useful commands:
 cd webui
 npm install
 npm run dev
+npm run docs:lint
 npm run build
 npm run preview
 ```
 
-`npm run dev` and `npm run preview` serve fixture-backed `GET` responses from `webui/mock`. Non-GET REST requests are logged and return configured mock success responses.
+`npm run dev` builds the API reference first, then serves fixture-backed `GET` responses from `webui/mock`. Non-GET REST requests are logged and return configured mock success responses.
 
 The ESP-IDF build runs `npm run build` automatically and embeds the generated compressed assets from `webui/dist`. Run `npm install` in `webui/` before building firmware on a fresh checkout.
+
+## API Documentation
+
+The REST API source of truth is `api/openapi.yaml`. It is written in OpenAPI format and rendered with Redocly CLI.
+
+- Update `api/openapi.yaml` whenever public routes, request bodies, or response payloads change.
+- Run `cd webui && npm run docs:lint` after editing the OpenAPI file.
+- `npm run build` generates `webui/dist/api.html` and compresses it for firmware embedding.
+- The firmware serves the rendered reference at `/api.html`, and the WebUI footer links there.
 
 ## Adding Configuration Sections
 
@@ -98,6 +108,7 @@ For local simulation, update:
 ## Before Submitting Changes
 
 - For WebUI changes, run `cd webui && npm run build`.
+- For API documentation changes, run `cd webui && npm run docs:lint`.
 - For firmware changes, run `idf.py build` from the repository root.
 - For changes that affect embedded WebUI assets, run both checks.
 - Do not commit generated output such as ESP-IDF build directories, `managed_components/`, `node_modules/`, or `webui/dist/`.

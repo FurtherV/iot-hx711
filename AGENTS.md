@@ -36,7 +36,7 @@ When project facts change:
 
 # Current Project State
 
-This is an ESP-IDF HX711 scale node with WiFi provisioning, mDNS discovery, a gzipped Vite WebUI, root-level HTTP API routes, OTA updates with rollback support, and a configurable sampling loop.
+This is an ESP-IDF HX711 scale node with WiFi provisioning, mDNS discovery, a gzipped Vite WebUI, root-level HTTP API routes, Redocly-generated OpenAPI documentation, OTA updates with rollback support, and a configurable sampling loop.
 
 ## Firmware Structure
 
@@ -52,12 +52,14 @@ This is an ESP-IDF HX711 scale node with WiFi provisioning, mDNS discovery, a gz
 
 - Source lives in `webui/src`.
 - The frontend uses Vite, ES modules, and uPlot.
+- The REST API contract lives in `api/openapi.yaml` and is rendered to `webui/dist/api.html` by Redocly CLI during the WebUI build.
 - Local development and preview use a mock API middleware driven by `webui/mock-api.config.json` and JSON fixtures under `webui/mock`.
 - The ESP-IDF build runs the WebUI build first, embeds only gzip-compressed output from `webui/dist`, and serves those assets with `Content-Encoding: gzip`.
 
 ## Current HTTP API
 
 - `GET /`
+- `GET /api.html`
 - `GET /assets/index.js`
 - `GET /assets/index.css`
 - `GET /info`
@@ -119,6 +121,10 @@ Replaced the temporary WebUI firmware mark with a cleaned, brand-colored SVG der
 ## Iteration 11 - Spring Cleaning
 
 Removed tracked ESP-IDF hello-world/template leftovers and machine-local project files that were no longer relevant to the HX711 firmware: the hello-world pytest, empty CI sdkconfig, duplicate WebUI README, and committed VS Code settings. Kept current firmware, WebUI, dependency lock, partition config, devcontainer, and clangd configuration intact.
+
+## Iteration 12 - Embedded OpenAPI Documentation
+
+Added an OpenAPI YAML contract for the root-level REST API, integrated Redocly CLI into the WebUI build, generated a standalone API reference at `/api.html`, embedded the gzipped documentation page into firmware, and linked to it from the WebUI footer on every screen.
 
 # Test Policy
 

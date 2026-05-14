@@ -22,6 +22,8 @@
 
 extern const unsigned char webui_index_html_gz_start[] asm("_binary_webui_index_html_gz_start");
 extern const unsigned char webui_index_html_gz_end[] asm("_binary_webui_index_html_gz_end");
+extern const unsigned char webui_api_html_gz_start[] asm("_binary_webui_api_html_gz_start");
+extern const unsigned char webui_api_html_gz_end[] asm("_binary_webui_api_html_gz_end");
 extern const unsigned char webui_assets_index_js_gz_start[] asm("_binary_webui_assets_index_js_gz_start");
 extern const unsigned char webui_assets_index_js_gz_end[] asm("_binary_webui_assets_index_js_gz_end");
 extern const unsigned char webui_assets_index_css_gz_start[] asm("_binary_webui_assets_index_css_gz_start");
@@ -44,6 +46,12 @@ static esp_err_t index_get_handler(httpd_req_t *req)
 {
     app_activity_led_pulse();
     return send_gzip_asset(req, "text/html", webui_index_html_gz_start, webui_index_html_gz_end);
+}
+
+static esp_err_t api_docs_get_handler(httpd_req_t *req)
+{
+    app_activity_led_pulse();
+    return send_gzip_asset(req, "text/html", webui_api_html_gz_start, webui_api_html_gz_end);
 }
 
 static esp_err_t script_get_handler(httpd_req_t *req)
@@ -696,7 +704,7 @@ static esp_err_t update_post_handler(httpd_req_t *req)
 esp_err_t app_web_start(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.max_uri_handlers = 14;
+    config.max_uri_handlers = 15;
     config.uri_match_fn = httpd_uri_match_wildcard;
 
     httpd_handle_t server = NULL;
@@ -707,6 +715,7 @@ esp_err_t app_web_start(void)
 
     const httpd_uri_t routes[] = {
         {.uri = "/", .method = HTTP_GET, .handler = index_get_handler},
+        {.uri = "/api.html", .method = HTTP_GET, .handler = api_docs_get_handler},
         {.uri = "/assets/index.js", .method = HTTP_GET, .handler = script_get_handler},
         {.uri = "/assets/index.css", .method = HTTP_GET, .handler = style_get_handler},
         {.uri = "/info", .method = HTTP_GET, .handler = info_get_handler},

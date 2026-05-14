@@ -9,6 +9,7 @@
 - First-boot provisioning through a fallback SoftAP.
 - Embedded WebUI built with Vite and served as compressed static assets.
 - Local WebUI simulator with fixture-backed API responses.
+- OpenAPI REST API reference generated with Redocly and embedded at `/api.html`.
 - OTA firmware upload through the WebUI or `POST /update`.
 - OTA rollback support with a validation delay after boot.
 - mDNS advertisement for local network discovery.
@@ -123,11 +124,14 @@ npm run build
 
 The local dev and preview servers include mock API middleware. Fixture-backed `GET` requests read matching files from `webui/mock`; for example, `GET /wifi` reads `webui/mock/wifi.json`. Other configured REST requests are logged and return mock success JSON.
 
+The API reference source is `api/openapi.yaml`. `npm run dev` and `npm run build` generate `webui/dist/api.html`, and the WebUI footer links to that rendered OpenAPI reference.
+
 ## HTTP API
 
 The firmware uses root-level API paths, not `/api/...` paths.
 
 - `GET /`: embedded WebUI.
+- `GET /api.html`: rendered OpenAPI REST API reference.
 - `GET /assets/index.js`: WebUI JavaScript.
 - `GET /assets/index.css`: WebUI CSS.
 - `GET /info`: device, build, heap, partition, and WiFi summary.
@@ -191,5 +195,6 @@ OTA upload is currently unauthenticated. Keep that in mind when deciding which n
 ## Notes
 
 - The project uses a custom OTA partition table from `partitions.csv`.
+- Keep `api/openapi.yaml` in sync when changing public REST API routes or payloads.
 - Edit WebUI source files under `webui/src/`, not generated files under `webui/dist/`.
 - See `CONTRIBUTING.md` before changing firmware module boundaries, HTTP routes, or WebUI configuration sections.

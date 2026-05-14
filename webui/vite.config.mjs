@@ -7,6 +7,7 @@ import { defineConfig } from "vite";
 const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 const sourceRoot = resolve(projectRoot, "src");
 const mockConfigPath = resolve(projectRoot, "mock-api.config.json");
+const apiDocsPath = resolve(projectRoot, "dist", "api.html");
 
 async function readRequestBody(req) {
   const chunks = [];
@@ -21,6 +22,22 @@ function jsonResponse(res, statusCode, payload) {
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Cache-Control", "no-store");
   res.end(JSON.stringify(payload));
+}
+
+async function serveApiDocs(res) {
+  if (!existsSync(apiDocsPath)) {
+    res.statusCode = 404;
+    res.setHeader("Content-Type", "text/plain");
+    res.setHeader("Cache-Control", "no-store");
+    res.end("API documentation has not been generated. Run 'npm run docs:build' or 'npm run build' in webui/.");
+    return;
+  }
+
+  const html = await readFile(apiDocsPath);
+  res.statusCode = 200;
+  res.setHeader("Content-Type", "text/html");
+  res.setHeader("Cache-Control", "no-store");
+  res.end(html);
 }
 
 async function loadMockConfig() {
@@ -47,6 +64,11 @@ function mockApiPlugin() {
       const url = new URL(req.url || "/", "http://localhost");
       const pathname = url.pathname;
       const config = await loadMockConfig();
+
+      if (req.method === "GET" && pathname === "/api.html") {
+        await serveApiDocs(res);
+        return;
+      }
 
       if (!isRestPath(pathname, config.restPrefixes)) {
         next();

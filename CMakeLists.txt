@@ -26,11 +26,13 @@ endif()
 
 set(WEBUI_DIST_FILES
     "${WEBUI_DIST_DIR}/index.html.gz"
+    "${WEBUI_DIST_DIR}/api.html.gz"
     "${WEBUI_DIST_DIR}/assets/index.js.gz"
     "${WEBUI_DIST_DIR}/assets/index.css.gz"
 )
 
 set(WEBUI_BUILD_DEPS
+    "${CMAKE_CURRENT_SOURCE_DIR}/api/openapi.yaml"
     "${WEBUI_DIR}/package.json"
     "${WEBUI_DIR}/vite.config.mjs"
     "${WEBUI_DIR}/scripts/gzip-dist.mjs"
@@ -56,5 +58,6 @@ add_custom_command(
 add_custom_target(webui_dist DEPENDS ${WEBUI_DIST_FILES})
 
 target_add_binary_data(${CMAKE_PROJECT_NAME}.elf "webui/dist/index.html.gz" BINARY RENAME_TO "webui_index_html_gz" DEPENDS webui_dist)
+target_add_binary_data(${CMAKE_PROJECT_NAME}.elf "webui/dist/api.html.gz" BINARY RENAME_TO "webui_api_html_gz" DEPENDS webui_dist)
 target_add_binary_data(${CMAKE_PROJECT_NAME}.elf "webui/dist/assets/index.js.gz" BINARY RENAME_TO "webui_assets_index_js_gz" DEPENDS webui_dist)
 target_add_binary_data(${CMAKE_PROJECT_NAME}.elf "webui/dist/assets/index.css.gz" BINARY RENAME_TO "webui_assets_index_css_gz" DEPENDS webui_dist)
