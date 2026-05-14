@@ -5,5 +5,10 @@
   "ssid": "lab-wifi",
   "password": "configureme",
   "ip": "192.168.1.91",
-  "apSsid": ""
+  "apSsid": "",
+  "availableSsids": [
+    "lab-wifi",
+    "workshop",
+    "guest"
+  ]
 }

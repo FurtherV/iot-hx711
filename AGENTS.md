@@ -5,411 +5,113 @@
 - Always keep `show_greetings` in `main.c` intact
 - Always run `show_greetings` as the first instruction in `app_main`
 - Never automatically install any additional libraries in esp-idf, forward these tasks to the human developer
+- Project changes are grouped as iterations in AGENTS.md or CHANGELOG.md when requested. Only update README.md or CONTRIBUTING.md if the iteration changes human-facing setup, behavior, API, structure, workflow, or extension guidance.
 
-# Previous Project Plans
+## Human Documentation Rules
 
-## Iteration 1
+README.md and CONTRIBUTING.md are for human developers, not for agent memory.
 
-Initial Web-IOT Skeleton
-Summary
-Build a small ESP-IDF Web-IOT foundation around the existing HX711 project while preserving show_greetings() exactly and keeping show_greetings(); as the first instruction in app_main.
+When updating README.md:
 
-The skeleton will use SoftAP web provisioning, NVS credential storage, an embedded single-page WebUI, and unauthenticated OTA uploads through both the WebUI and POST /update, per your selected defaults.
+- Treat it as the first-time project entrypoint.
+- Keep it focused on what the project is, hardware/toolchain prerequisites, setup, build/flash, first boot/provisioning, WebUI usage, and the public HTTP API.
+- Include practical facts a new contributor needs, such as GPIO defaults, provisioning URL, dependency setup, generated files, and important security notes.
+- Do not mention AGENTS.md, Codex, agents, iteration history, or project-memory bookkeeping.
+- Do not include implementation details unless they help a human build, run, configure, or integrate with the project.
 
-Key Changes
-Add root-level webui/ containing exactly:
-index.html
-script.mjs
-style.css
-Embed those three files into firmware via main/CMakeLists.txt EMBED_FILES.
-Add firmware modules for:
-NVS initialization and WiFi credential storage
-STA connection using stored credentials
-fallback SoftAP provisioning when credentials are missing or STA connect fails
-HTTP server routes
-OTA upload handling
-Keep main/main.c as the startup owner:
-leave show_greetings() intact
-first line inside app_main remains show_greetings();
-remove the current restart countdown behavior
-initialize NVS, WiFi, and Web server after greetings
-Firmware Behavior
-WiFi provisioning:
-On boot, load ssid and password from NVS namespace wifi_config.
-If credentials exist, start STA mode and attempt connection.
-If credentials are missing or connection fails after a bounded retry count, start SoftAP mode.
-SoftAP SSID: iot-hx711-XXXXXX, using the last 3 MAC bytes.
-SoftAP password: configureme for the initial skeleton.
-WebUI configuration tab posts credentials to POST /api/wifi, firmware stores them in NVS, then restarts.
-Web server routes:
-GET / serves embedded index.html
-GET /script.mjs serves embedded JS with application/javascript
-GET /style.css serves embedded CSS with text/css
-GET /api/info returns JSON with app name, IDF version, chip target, free heap, WiFi mode/status/IP when available, and active OTA partition label.
-GET /api/wifi returns current WiFi status without exposing the password.
-POST /api/wifi accepts JSON { "ssid": "...", "password": "..." }.
-POST /update accepts a raw firmware binary upload and performs OTA using esp_ota_begin, esp_ota_write, esp_ota_end, and esp_ota_set_boot_partition, then restarts on success.
-OTA support:
-Add a custom partitions.csv with nvs, otadata, phy_init, ota_0, and ota_1.
-Update sdkconfig defaults to use the custom OTA partition table.
-Leave rollback/signature policy out of v1 unless added later.
-WebUI
-Build a compact, modern industrial-style UI inspired by Perinet-style dashboard surfaces, using orange accents instead of green.
-Use tab navigation only for:
-Home: status summary and OTA upload control
-Information: device/build/network details from /api/info
-Configuration: WiFi credential form and connection status
-Keep the WebUI dependency-free: plain HTML, CSS, and ES module JavaScript.
-OTA WebUI flow:
-file input accepts .bin
-upload uses fetch('/update', { method: 'POST', body: file })
-show progress/status text and success/failure result
-Test Plan For Human Developer
-Do not run tests, builds, compiles, or automatic dependency installs from Codex.
-Human developer should run:
-idf.py menuconfig only if they want to inspect partition settings
-idf.py build
-flash and verify first boot starts SoftAP when no credentials exist
-submit WiFi credentials through WebUI and confirm reboot into STA mode
-open WebUI over STA IP and verify all three tabs
-upload a valid firmware .bin through WebUI
-upload the same .bin with curl -X POST --data-binary @firmware.bin http://DEVICE_IP/update
-Assumptions
-ESP-IDF v6.0.1 APIs from the current build tree are the target.
-No authentication is added for OTA in this first skeleton.
-No new external libraries are installed.
-WebUI code means frontend assets only; firmware HTTP/WiFi/OTA C code may live under main/.
-Perinet visual reference is treated as a general industrial dashboard cue; source checked: 
-https://perinet.io/en/news/product-updates/perinets-new-dashboard-container-real-time-and-historic-data-visualization-no-configuration-necessary
+When updating CONTRIBUTING.md:
 
-## Iteration 2
+- Treat it as the human contributor guide.
+- Keep it focused on firmware structure, WebUI structure, module boundaries, route conventions, extension patterns, dependency policy, and checks before submitting.
+- Preserve the rule that public API routes are root-level and no new `/api/...` routes should be added.
+- Preserve the `show_greetings()` constraint in human-readable wording.
+- Prefer contributor wording such as "discuss new firmware dependencies before adding them" over agent wording such as "do not install automatically".
+- Do not mention AGENTS.md, Codex, agents, iteration history, or project-memory bookkeeping.
 
-Configuration And Device Discovery Delta
-Summary
-Add project-specific sdkconfig options and small runtime helpers beyond the initial Web-IOT skeleton.
+When project facts change:
 
-Key Changes
-Add main/Kconfig.projbuild with custom project options for:
-initial provisioning SoftAP password
-HX711 SCK GPIO
-HX711 DT GPIO
-on-board status LED GPIO
-Use CONFIG_APP_WIFI_AP_PASSWORD for the provisioning SoftAP:
-empty value keeps the AP open
-non-empty value enables WPA2-PSK
-reject non-empty SoftAP passwords outside the ESP-IDF 8-63 character range
-Use default HX711 pin config values:
-CONFIG_APP_HX711_SCK_GPIO defaults to 18
-CONFIG_APP_HX711_DT_GPIO defaults to 19
-Store the confirmed on-board LED pin:
-CONFIG_APP_STATUS_LED_GPIO defaults to 2
-Add mDNS support:
-new app_mdns module
-advertise the HTTP service as http://iot-XXXXXX.local
-derive XXXXXX from the last three SoftAP MAC bytes, matching the iot-XXXXXX device naming pattern
-Add web activity LED behavior:
-new app_activity_led module
-configure CONFIG_APP_STATUS_LED_GPIO as output
-pulse the LED on web requests and while POST bodies are being received
-keep LED pulsing in a background task so HTTP handlers are not delayed
+- Update README.md only for human-facing setup, hardware, API, behavior, or usage changes.
+- Update CONTRIBUTING.md only for workflow, structure, extension-pattern, dependency, or contribution-check changes.
+- Do not update human docs just because AGENTS.md iteration history changed, unless the change also affects human-facing project information.
 
-Startup Order
-Keep show_greetings() intact.
-Keep show_greetings(); as the first instruction in app_main.
-After NVS init, start:
-activity LED
-WiFi
-mDNS
-web server
+# Current Project State
 
-Test Plan For Human Developer
-Codex must not run tests, builds, compile checks, or automatic dependency installs.
-Human developer should run the ESP-IDF build and flash flow.
-Human developer should verify:
-configured SoftAP password behavior
-HX711 GPIO values in menuconfig
-status LED GPIO default is 2
-web UI is reachable by IP and by http://iot-XXXXXX.local where supported by the client network
-LED pulses during web activity
+This is an ESP-IDF HX711 scale node with WiFi provisioning, mDNS discovery, a gzipped Vite WebUI, root-level HTTP API routes, OTA updates with rollback support, and a configurable sampling loop.
 
-## Iteration 3
+## Firmware Structure
 
-HX711 Sampling And Calibrated Sample Output
-Summary
-Add the HX711 runtime sampler, expose cached sample data through GET /sample, and show the current sample on the WebUI home screen.
+- `main/main.c` owns startup order and must keep `show_greetings();` first in `app_main`.
+- `main/app_wifi.*` owns WiFi STA credentials, SoftAP fallback, WiFi reset, and scan results for the WebUI SSID datalist.
+- `main/app_web.*` owns the HTTP server, static gzipped WebUI assets, root-level API routes, OTA upload, partition reporting, and restart actions.
+- `main/app_sample.*` owns HX711 setup, calibrated sample caching, and sample interval persistence.
+- `main/app_mdns.*` advertises the device as `iot-XXXXXX.local`.
+- `main/app_activity_led.*` pulses the active-low status LED on web activity.
+- `main/Kconfig.projbuild` owns project options such as SoftAP password, HX711 pins, and status LED pin.
 
-Key Changes
-Add app_sample module:
-initialize esp-idf-lib/hx711 with CONFIG_APP_HX711_DT_GPIO and CONFIG_APP_HX711_SCK_GPIO
-use HX711_GAIN_A_64
-read averaged HX711 samples once per second with hx711_read_average
-cache the JSON representation of the latest successful sample
-protect cached JSON with a FreeRTOS mutex
-do not advance sequence_number on failed HX711 reads
+## WebUI Structure
 
-Sample identity:
-store system incarnation in NVS namespace app_state, key incarnation
-increment incarnation once on every boot after NVS init
-factory reset / NVS erase naturally resets incarnation
-sequence_number starts at 0 on boot and increments on each successful sample
+- Source lives in `webui/src`.
+- The frontend uses Vite, ES modules, and uPlot.
+- Local development and preview use a mock API middleware driven by `webui/mock-api.config.json` and JSON fixtures under `webui/mock`.
+- The ESP-IDF build runs the WebUI build first, embeds only gzip-compressed output from `webui/dist`, and serves those assets with `Content-Encoding: gzip`.
 
-Calibration:
-empty-scale raw offset is -171000
-2.5 kg calibration raw value is 224622
-calibration span is 395622 raw counts for 2500 g
-convert raw readings to grams with fixed-point math
-clamp reported grams to the 0.0 to 5000.0 g range
+## Current HTTP API
 
-GET /sample returns JSON with multiple data values:
-{
-"incarnation": NUMBER,
-"sequence_number": NUMBER,
-"data": [
-{ "value": NUMBER, "unit": "g" },
-{ "value": NUMBER, "unit": "raw" }
-]
-}
+- `GET /`
+- `GET /assets/index.js`
+- `GET /assets/index.css`
+- `GET /info`
+- `GET /wifi`
+- `POST /wifi`
+- `POST /wifi/reset`
+- `GET /partitions`
+- `GET /config`
+- `POST /config/sample`
+- `GET /sample`
+- `POST /update`
+- `POST /reboot`
+- `POST /config/reset`
 
-Startup Order
-Keep show_greetings() intact.
-Keep show_greetings(); as the first instruction in app_main.
-After NVS init, start:
-activity LED
-sample service
-WiFi
-mDNS
-web server
+There are no `/api/...` compatibility routes.
 
-WebUI
-Poll GET /sample every second with cache: "no-store".
-Show the first data value on the Home screen, which is calibrated grams.
-Show sequence_number and incarnation near the sample value.
-Keep showing the previous value if polling temporarily fails.
+# Compact Iteration History
 
-Test Plan For Human Developer
-Codex must not run tests, builds, compile checks, or automatic dependency installs.
-Human developer should run the ESP-IDF build and flash flow.
-Human developer should verify:
-/sample returns valid JSON with both g and raw data entries
-grams read around 0 g with an empty scale
-grams read around 2500 g with the calibration weight
-grams clamp at 0 g below tare and 5000 g above the configured maximum
-sequence_number increases over time after successful samples
-incarnation increases after reboot and resets after NVS erase
-WebUI home screen updates the sample value every second
+## Iteration 1 - Initial Web-IOT Skeleton
 
-## Iteration 4
+Added the first embedded WebUI, NVS-backed WiFi credentials, STA connection, SoftAP fallback provisioning, HTTP routes, and unauthenticated OTA upload through `POST /update`. Added an OTA partition table with `nvs`, `otadata`, `phy_init`, `ota_0`, and `ota_1`.
 
-Update Tab, Partition Overview, And OTA Rollback
-Summary
-Move firmware update controls into a dedicated Update tab, expose the runtime partition table through the firmware API, and enable OTA rollback with a 60-second validation window.
+## Iteration 2 - Configuration And Discovery
 
-Key Changes
-WebUI:
-add Update tab to the primary tab navigation
-move the firmware upload form from Home to Update
-keep Home focused on live status and sample metrics
-add a partition table to Update
-show partition label, type, subtype, offset, size, and role/status badges
-continue using POST /update for firmware uploads
+Added project Kconfig options for provisioning SoftAP password, HX711 GPIOs, and status LED GPIO. Added mDNS naming as `iot-XXXXXX.local` and a web activity LED module.
 
-Partition API:
-add GET /api/partitions
-enumerate partitions at runtime with esp_partition_find
-return label, type, subtype, address, size, encrypted, running, boot, and nextUpdate
-compare partitions with esp_ota_get_running_partition, esp_ota_get_boot_partition, and esp_ota_get_next_update_partition
-increase HTTP server max_uri_handlers to 12 so all routes can register
+## Iteration 3 - HX711 Sampling
 
-OTA rollback:
-enable CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE in sdkconfig.defaults
-after OTA, booted images remain in ESP_OTA_IMG_PENDING_VERIFY during startup
-after NVS, activity LED, sample service, WiFi, mDNS, and web server start, begin a 60-second validation guard
-only after the guard delay survives, call esp_ota_mark_app_valid_cancel_rollback
-if the app crashes or reboots before validation, bootloader rollback can return to the previous valid OTA slot
+Added the HX711 sample service using configured GPIOs, cached JSON samples, NVS-backed incarnation tracking, per-boot sequence numbers, and fixed calibration from raw counts to grams. Exposed the current sample through `GET /sample`.
 
-Static asset note:
-webui/index.html, script.mjs, and style.css are embedded raw through target_add_binary_data
-assets are not minified or gzip-compressed yet
-gzip serving is possible later by embedding pre-compressed files and setting Content-Encoding: gzip, but current asset size is small enough to keep the simpler raw setup
+## Iteration 4 - Update Tab, Partitions, And OTA Rollback
 
-Test Plan For Human Developer
-Codex must not run tests, builds, compile checks, or automatic dependency installs.
-Human developer should run the ESP-IDF build and flash flow.
-Human developer should verify:
-Home no longer contains firmware update controls
-Update tab contains firmware upload controls
-firmware upload still works through POST /update
-/api/partitions returns valid JSON
-Update tab shows nvs, otadata, phy_init, ota_0, and ota_1
-running, boot, and next OTA roles are shown correctly
-HTTP server starts without ESP_ERR_HTTPD_HANDLERS_FULL
-after OTA, a new image rolls back if it crashes before the 60-second validation window completes
-after OTA, a healthy image is marked valid after surviving the validation window
+Moved firmware update controls into a dedicated WebUI Update screen, added runtime partition reporting, increased HTTP handler capacity, and enabled OTA rollback with a 60-second validation guard.
 
-## Iteration 5
+## Iteration 5 - WiFi Reset And Active-Low LED
 
-WiFi Forget Control And Active-Low Activity LED
-Summary
-Add a WebUI control for clearing stored WiFi credentials without erasing the rest of NVS, and invert the activity LED polarity for active-low hardware.
+Added a WiFi credential reset action that erases only the `wifi_config` NVS namespace and restarts the device. Changed activity LED behavior to active-low polarity.
 
-Key Changes
-WiFi reset:
-add app_wifi_forget_credentials()
-erase only the NVS namespace wifi_config
-leave app_state, OTA data, calibration assumptions, and other NVS namespaces untouched
-return success when wifi_config does not exist
+## Iteration 6 - Vite Build, Mock API, And Gzip Assets
 
-HTTP API:
-add POST /api/wifi/forget
-call app_wifi_forget_credentials()
-return JSON { "ok": true, "restarting": true } on success
-restart after a short delay using the existing restart_task behavior
-keep POST /api/wifi unchanged for saving replacement credentials
+Moved the WebUI to a Vite project under `webui/src`, added local dev and preview scripts with fixture-backed mock API responses, and integrated the WebUI build into ESP-IDF so gzip-compressed assets are embedded into firmware.
 
-WebUI:
-add a Forget WiFi section to the Configuration tab
-add a Forget and Restart button
-show a browser confirmation before sending the request
-call fetch("/api/wifi/forget", { method: "POST" })
-show success or error status text in the Configuration tab
+## Iteration 7 - Root-Level API Paths
 
-Activity LED:
-invert app_activity_led polarity
-set APP_ACTIVITY_LED_ON_LEVEL to 0
-set APP_ACTIVITY_LED_OFF_LEVEL to 1
-initialize the configured LED GPIO to the off level
-preserve the existing activity pulse timing and background task behavior
+Removed the `/api` prefix from firmware, WebUI, and local mock routes. Current routes use paths such as `/info`, `/wifi`, `/partitions`, `/config`, `/sample`, and `/update`.
 
-Startup Order
-Keep show_greetings() intact.
-Keep show_greetings(); as the first instruction in app_main.
-No startup order changes are required for this iteration.
+## Iteration 8 - Chart, Sample Interval, And Session Tabs
 
-Test Plan For Human Developer
-Codex must not run tests, builds, compile checks, or automatic dependency installs.
-Human developer should run the ESP-IDF build and flash flow.
-Human developer should verify:
-Configuration tab shows Forget WiFi
-clicking Forget and Restart prompts for confirmation
-confirming clears stored WiFi credentials and restarts the device
-after restart, the device starts provisioning SoftAP when no credentials remain
-existing Save and Restart WiFi credential flow still works
-activity LED is idle at the configured off level
-activity LED pulses with active-low polarity during web requests and POST body handling
+Replaced the Home scalar sample display with a uPlot chart using a fixed 0 g to 5500 g range and rolling sample history. Added configurable sample interval persistence through `/config` and `/config/sample`. Added browser-session tab persistence with `sessionStorage`.
 
-## Iteration 6
+## Iteration 9 - Compact Project Documentation
 
-Vite WebUI Build, Local Simulation, And Gzip Embedding
-Summary
-Upgrade the WebUI from raw embedded files to a Vite-based frontend with local API simulation and gzip-only firmware assets.
+Compacted the verbose historical project plans into a shorter current-state overview, root-level API reference, concise iteration ledger, and explicit test policy. Preserved the agent constraints and current firmware/WebUI structure notes so future changes have less duplicated history to scan.
 
-Key Changes
-WebUI build:
-move WebUI source files under webui/src
-add Vite project metadata and npm scripts for dev, build, and preview
-add a gzip post-build script that compresses generated dist assets
-keep webui/dist generated and ignored
+# Test Policy
 
-Local simulation:
-add configurable mock API middleware for Vite dev and preview
-serve fixture-backed GET responses from matching JSON files under webui/mock
-include fixtures for /api/info, /api/wifi, /api/partitions, and /sample
-log non-GET REST requests such as WiFi save, WiFi forget, and OTA upload
-
-Firmware integration:
-run npm run build from ESP-IDF CMake before embedding WebUI assets
-embed only gzipped Vite output files
-serve /, /assets/index.js, and /assets/index.css with Content-Encoding: gzip
-preserve existing firmware API routes and behavior
-
-Test Plan For Human Developer
-Codex must not run tests, builds, compile checks, or automatic dependency installs.
-Human developer should run:
-cd webui && npm install
-npm run dev
-npm run build
-idf.py build
-Human developer should verify:
-local WebUI loads through Vite
-GET mock endpoints return fixture JSON
-POST REST flows are logged by the local server
-webui/dist contains index.html.gz, assets/index.js.gz, and assets/index.css.gz
-firmware build embeds the gzipped WebUI assets
-
-## Iteration 7
-
-Root-Level API Path Refactor
-Summary
-Remove the /api prefix from firmware and WebUI API routes while keeping OTA upload at /update.
-
-Key Changes
-Firmware routes:
-change GET /api/info to GET /info
-change GET and POST /api/wifi to GET and POST /wifi
-change POST /api/wifi/forget to POST /wifi/forget
-change GET /api/partitions to GET /partitions
-keep GET /sample unchanged
-keep POST /update unchanged
-do not keep /api compatibility aliases
-
-WebUI and local simulation:
-update WebUI fetch calls to the new root-level paths
-update Vite mock API config to recognize /info, /wifi, /wifi/forget, /partitions, /sample, and /update
-move mock fixtures to matching root-level JSON paths under webui/mock
-keep request and response JSON schemas unchanged
-
-Test Plan For Human Developer
-Codex must not run tests, builds, compile checks, or automatic dependency installs.
-Human developer should verify:
-local Vite server returns fixture JSON for /info, /wifi, /partitions, and /sample
-local WiFi save posts to /wifi
-local Forget WiFi posts to /wifi/forget
-local OTA upload still posts to /update
-on-device WebUI populates all tabs through the new paths
-old /api routes no longer work
-
-## Iteration 8
-
-WebUI Dashboard Chart, Sample Interval Configuration, And Session Tab Persistence
-Summary
-Refine the WebUI dashboard with a uPlot sample chart, configurable sample interval, and browser-session tab persistence.
-
-Key Changes
-Home chart:
-replace the Home scalar sample display with a uPlot line chart
-plot calibrated grams from /sample
-use a fixed 0 g to 5500 g Y axis
-keep a rolling 60-point sample history
-remove the Home screen Live Sensor and Live calibrated reading text
-
-Sampling configuration:
-add a Sampling section to Configuration
-add sampleIntervalMs with valid range 100 to 10000 ms
-persist the sample interval in NVS under app_state
-default sample interval is 1000 ms
-firmware sampler uses the stored interval after restart
-WebUI polling interval is initialized from GET /config
-POST /config/sample stores a new interval and restarts the device
-
-WebUI session behavior:
-store the active screen in sessionStorage
-restore the active screen after page reload
-fall back to Home when no valid session screen exists
-
-Local simulation:
-add uplot as a frontend dependency
-add GET /config fixture data
-add mock success response for POST /config/sample
-
-Test Plan For Human Developer
-Codex must not run ESP-IDF tests, builds, or compile checks.
-Human developer should run:
-npm run build
-idf.py build
-Human developer should verify:
-Home shows the uPlot chart and no scalar sample text
-chart updates from /sample at the configured interval
-Sampling section saves interval values from 100 to 10000 ms
-invalid sample intervals are rejected
-device restarts after saving a sample interval
-active WebUI screen survives page reload within the same browser session
+Codex must not run ESP-IDF tests, builds, compile checks, flashes, or automatic ESP-IDF dependency installs. Human developer should run ESP-IDF verification. Frontend-only checks such as `npm run build` may be run when WebUI files are changed and dependencies are already installed.

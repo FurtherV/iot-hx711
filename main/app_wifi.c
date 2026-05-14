@@ -1,5 +1,6 @@
 #include "app_wifi.h"
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -19,6 +20,7 @@
 #define APP_WIFI_PASSWORD_KEY "password"
 #define APP_WIFI_AP_PASSWORD CONFIG_APP_WIFI_AP_PASSWORD
 #define APP_WIFI_MAX_RETRIES 10
+#define APP_WIFI_SCAN_RECORD_MAX 32
 
 static const char *TAG = "app_wifi";
 static const int WIFI_CONNECTED_BIT = BIT0;
@@ -27,6 +29,7 @@ static const int WIFI_FAIL_BIT = BIT1;
 static EventGroupHandle_t s_wifi_event_group;
 static int s_retry_count;
 static app_wifi_status_t s_status;
+static bool s_sta_connect_enabled;
 
 static esp_err_t load_credentials(char *ssid, size_t ssid_len, char *password, size_t password_len)
 {
@@ -92,19 +95,107 @@ esp_err_t app_wifi_forget_credentials(void)
     return err;
 }
 
+esp_err_t app_wifi_scan_ssids(char ssids[][APP_WIFI_SSID_MAX_LEN + 1], size_t max_ssids, size_t *ssid_count)
+{
+    if (ssids == NULL || ssid_count == NULL || max_ssids == 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    *ssid_count = 0;
+
+    wifi_scan_config_t scan_config = {
+        .show_hidden = false,
+    };
+    esp_err_t err = esp_wifi_scan_start(&scan_config, true);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    uint16_t ap_count = 0;
+    err = esp_wifi_scan_get_ap_num(&ap_count);
+    if (err != ESP_OK || ap_count == 0) {
+        return err;
+    }
+
+    uint16_t record_count = ap_count > APP_WIFI_SCAN_RECORD_MAX ? APP_WIFI_SCAN_RECORD_MAX : ap_count;
+    wifi_ap_record_t *records = calloc(record_count, sizeof(wifi_ap_record_t));
+    if (records == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
+
+    err = esp_wifi_scan_get_ap_records(&record_count, records);
+    if (err != ESP_OK) {
+        free(records);
+        return err;
+    }
+
+    int8_t rssi[APP_WIFI_SCAN_RESULT_MAX] = {0};
+    size_t limit = max_ssids < APP_WIFI_SCAN_RESULT_MAX ? max_ssids : APP_WIFI_SCAN_RESULT_MAX;
+
+    for (uint16_t i = 0; i < record_count; i++) {
+        const char *ssid = (const char *)records[i].ssid;
+        if (ssid[0] == '\0') {
+            continue;
+        }
+
+        size_t existing = limit;
+        for (size_t j = 0; j < *ssid_count; j++) {
+            if (strncmp(ssids[j], ssid, APP_WIFI_SSID_MAX_LEN) == 0) {
+                existing = j;
+                break;
+            }
+        }
+
+        if (existing < *ssid_count) {
+            if (records[i].rssi > rssi[existing]) {
+                rssi[existing] = records[i].rssi;
+            }
+            continue;
+        }
+
+        if (*ssid_count >= limit) {
+            continue;
+        }
+
+        strlcpy(ssids[*ssid_count], ssid, APP_WIFI_SSID_MAX_LEN + 1);
+        rssi[*ssid_count] = records[i].rssi;
+        (*ssid_count)++;
+    }
+
+    for (size_t i = 0; i < *ssid_count; i++) {
+        for (size_t j = i + 1; j < *ssid_count; j++) {
+            if (rssi[j] > rssi[i]) {
+                int8_t rssi_tmp = rssi[i];
+                rssi[i] = rssi[j];
+                rssi[j] = rssi_tmp;
+
+                char ssid_tmp[APP_WIFI_SSID_MAX_LEN + 1];
+                strlcpy(ssid_tmp, ssids[i], sizeof(ssid_tmp));
+                strlcpy(ssids[i], ssids[j], APP_WIFI_SSID_MAX_LEN + 1);
+                strlcpy(ssids[j], ssid_tmp, APP_WIFI_SSID_MAX_LEN + 1);
+            }
+        }
+    }
+
+    free(records);
+    return ESP_OK;
+}
+
 static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
-        esp_wifi_connect();
+        if (s_sta_connect_enabled) {
+            esp_wifi_connect();
+        }
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         s_status.connected = false;
         s_status.ip[0] = '\0';
 
-        if (s_retry_count < APP_WIFI_MAX_RETRIES) {
+        if (s_sta_connect_enabled && s_retry_count < APP_WIFI_MAX_RETRIES) {
             s_retry_count++;
             esp_wifi_connect();
             ESP_LOGI(TAG, "Retrying WiFi connection (%d/%d)", s_retry_count, APP_WIFI_MAX_RETRIES);
-        } else {
+        } else if (s_sta_connect_enabled) {
             xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
         }
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
@@ -126,6 +217,7 @@ static void build_ap_ssid(char *ssid, size_t ssid_len)
 
 static esp_err_t start_softap(void)
 {
+    s_sta_connect_enabled = false;
     build_ap_ssid(s_status.ap_ssid, sizeof(s_status.ap_ssid));
 
     size_t ap_password_len = strlen(APP_WIFI_AP_PASSWORD);
@@ -149,7 +241,7 @@ static esp_err_t start_softap(void)
         ESP_LOGE(TAG, "Failed to stop WiFi before SoftAP start: %s", esp_err_to_name(stop_err));
         return stop_err;
     }
-    ESP_RETURN_ON_ERROR(esp_wifi_set_mode(WIFI_MODE_AP), TAG, "Failed to set SoftAP mode");
+    ESP_RETURN_ON_ERROR(esp_wifi_set_mode(WIFI_MODE_APSTA), TAG, "Failed to set SoftAP mode");
     ESP_RETURN_ON_ERROR(esp_wifi_set_config(WIFI_IF_AP, &ap_config), TAG, "Failed to configure SoftAP");
     ESP_RETURN_ON_ERROR(esp_wifi_start(), TAG, "Failed to start SoftAP");
 
@@ -168,6 +260,7 @@ esp_err_t app_wifi_start(void)
     char password[APP_WIFI_PASSWORD_MAX_LEN + 1] = {0};
 
     memset(&s_status, 0, sizeof(s_status));
+    s_sta_connect_enabled = false;
 
     ESP_RETURN_ON_ERROR(esp_netif_init(), TAG, "Failed to initialize netif");
     ESP_RETURN_ON_ERROR(esp_event_loop_create_default(), TAG, "Failed to create event loop");
@@ -202,6 +295,7 @@ esp_err_t app_wifi_start(void)
 
     ESP_RETURN_ON_ERROR(esp_wifi_set_mode(WIFI_MODE_STA), TAG, "Failed to set STA mode");
     ESP_RETURN_ON_ERROR(esp_wifi_set_config(WIFI_IF_STA, &sta_config), TAG, "Failed to configure STA");
+    s_sta_connect_enabled = true;
     ESP_RETURN_ON_ERROR(esp_wifi_start(), TAG, "Failed to start STA");
 
     EventBits_t bits = xEventGroupWaitBits(

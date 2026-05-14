@@ -63,6 +63,49 @@ static const char *bool_text(bool value)
     return value ? "true" : "false";
 }
 
+static bool json_escape_string(const char *input, char *output, size_t output_len)
+{
+    static const char hex[] = "0123456789ABCDEF";
+    size_t used = 0;
+
+    if (output_len == 0) {
+        return false;
+    }
+
+    for (const unsigned char *cursor = (const unsigned char *)input; *cursor != '\0'; cursor++) {
+        char escaped[6];
+        size_t escaped_len = 0;
+
+        if (*cursor == '"' || *cursor == '\\') {
+            escaped[0] = '\\';
+            escaped[1] = (char)*cursor;
+            escaped_len = 2;
+        } else if (*cursor < 0x20) {
+            escaped[0] = '\\';
+            escaped[1] = 'u';
+            escaped[2] = '0';
+            escaped[3] = '0';
+            escaped[4] = hex[*cursor >> 4];
+            escaped[5] = hex[*cursor & 0x0f];
+            escaped_len = sizeof(escaped);
+        } else {
+            escaped[0] = (char)*cursor;
+            escaped_len = 1;
+        }
+
+        if (used + escaped_len >= output_len) {
+            output[0] = '\0';
+            return false;
+        }
+
+        memcpy(output + used, escaped, escaped_len);
+        used += escaped_len;
+    }
+
+    output[used] = '\0';
+    return true;
+}
+
 static const char *partition_type_text(esp_partition_type_t type)
 {
     switch (type) {
@@ -185,6 +228,28 @@ static esp_err_t wifi_get_handler(httpd_req_t *req)
     app_wifi_status_t wifi;
     app_wifi_get_status(&wifi);
 
+    char available_ssids[APP_WIFI_SCAN_RESULT_MAX][APP_WIFI_SSID_MAX_LEN + 1] = {0};
+    size_t available_ssid_count = 0;
+    esp_err_t scan_err = app_wifi_scan_ssids(available_ssids, APP_WIFI_SCAN_RESULT_MAX, &available_ssid_count);
+    if (scan_err != ESP_OK) {
+        ESP_LOGW(TAG, "WiFi scan failed: %s", esp_err_to_name(scan_err));
+    }
+
+    char ssid[(APP_WIFI_SSID_MAX_LEN * 6) + 1];
+    char password[(APP_WIFI_PASSWORD_MAX_LEN * 6) + 1];
+    char ip[(APP_WIFI_IP_MAX_LEN * 6) + 1];
+    char ap_ssid[(APP_WIFI_SSID_MAX_LEN * 6) + 1];
+    if (!json_escape_string(wifi.ssid, ssid, sizeof(ssid)) ||
+        !json_escape_string(wifi.password, password, sizeof(password)) ||
+        !json_escape_string(wifi.ip, ip, sizeof(ip)) ||
+        !json_escape_string(wifi.ap_ssid, ap_ssid, sizeof(ap_ssid))) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "WiFi response too large");
+        return ESP_FAIL;
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+
     char json[512];
     int len = snprintf(json, sizeof(json),
                        "{"
@@ -194,23 +259,46 @@ static esp_err_t wifi_get_handler(httpd_req_t *req)
                        "\"ssid\":\"%s\","
                        "\"password\":\"%s\","
                        "\"ip\":\"%s\","
-                       "\"apSsid\":\"%s\""
-                       "}",
+                       "\"apSsid\":\"%s\","
+                       "\"availableSsids\":[",
                        bool_text(wifi.has_credentials),
                        bool_text(wifi.connected),
                        bool_text(wifi.softap_active),
-                       wifi.ssid,
-                       wifi.password,
-                       wifi.ip,
-                       wifi.ap_ssid);
-
+                       ssid,
+                       password,
+                       ip,
+                       ap_ssid);
     if (len < 0 || len >= (int)sizeof(json)) {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "WiFi response too large");
         return ESP_FAIL;
     }
 
-    httpd_resp_set_type(req, "application/json");
-    return httpd_resp_sendstr(req, json);
+    esp_err_t err = httpd_resp_sendstr_chunk(req, json);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    for (size_t i = 0; i < available_ssid_count; i++) {
+        char scanned_ssid[(APP_WIFI_SSID_MAX_LEN * 6) + 1];
+        if (!json_escape_string(available_ssids[i], scanned_ssid, sizeof(scanned_ssid))) {
+            httpd_resp_sendstr_chunk(req, NULL);
+            return ESP_FAIL;
+        }
+
+        len = snprintf(json, sizeof(json), "%s\"%s\"", i == 0 ? "" : ",", scanned_ssid);
+        if (len < 0 || len >= (int)sizeof(json)) {
+            httpd_resp_sendstr_chunk(req, NULL);
+            return ESP_FAIL;
+        }
+
+        err = httpd_resp_sendstr_chunk(req, json);
+        if (err != ESP_OK) {
+            return err;
+        }
+    }
+
+    ESP_RETURN_ON_ERROR(httpd_resp_sendstr_chunk(req, "]}"), TAG, "Failed to finish WiFi response");
+    return httpd_resp_sendstr_chunk(req, NULL);
 }
 
 static esp_err_t sample_get_handler(httpd_req_t *req)

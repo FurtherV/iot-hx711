@@ -100,12 +100,13 @@
                 <form id="wifiForm" class="form config-form">
                   <label>
                     <span>SSID</span>
-                    <input id="ssid" name="ssid" type="text" maxlength="32" autocomplete="off" required>
+                    <input id="ssid" name="ssid" type="text" maxlength="32" autocomplete="off" autocapitalize="none" spellcheck="false" list="ssidOptions" required>
+                    <datalist id="ssidOptions"></datalist>
                   </label>
                   <label>
                     <span>Password</span>
                     <span class="password-row">
-                      <input id="password" name="password" type="password" maxlength="64" autocomplete="current-password">
+                      <input id="password" name="password" type="password" maxlength="64" autocomplete="off">
                       <button class="icon-button" id="togglePasswordButton" type="button" aria-label="Show password" title="Show password">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                           <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>

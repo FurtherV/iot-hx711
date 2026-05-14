@@ -1,53 +1,195 @@
-| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C5 | ESP32-C6 | ESP32-C61 | ESP32-H2 | ESP32-H21 | ESP32-H4 | ESP32-P4 | ESP32-S2 | ESP32-S3 | Linux |
-| ----------------- | ----- | -------- | -------- | -------- | -------- | --------- | -------- | --------- | -------- | -------- | -------- | -------- | ----- |
+# iot_hx711
 
-# Hello World Example
+`iot_hx711` is ESP-IDF firmware for an ESP32-based HX711 scale node. It reads an HX711 load-cell amplifier, exposes measurements through a small HTTP API, and serves an embedded WebUI for status, configuration, sampling, and OTA firmware updates.
 
-Starts a FreeRTOS task to print "Hello World".
+## Features
 
-(See the README.md file in the upper level 'examples' directory for more information about examples.)
+- HX711 sampling with calibrated gram output and raw-count output.
+- WiFi station mode with credentials stored in NVS.
+- First-boot provisioning through a fallback SoftAP.
+- Embedded WebUI built with Vite and served as compressed static assets.
+- Local WebUI simulator with fixture-backed API responses.
+- OTA firmware upload through the WebUI or `POST /update`.
+- OTA rollback support with a validation delay after boot.
+- mDNS advertisement for local network discovery.
+- Active-low web activity LED pulse.
 
-## How to use example
+## Hardware
 
-Follow detailed instructions provided specifically for this example.
+Default GPIO assignments are configured in `main/Kconfig.projbuild`:
 
-Select the instructions depending on Espressif chip installed on your development board:
+- HX711 `SCK` / `PD_SCK`: GPIO 18
+- HX711 `DT` / `DOUT`: GPIO 19
+- Status LED: GPIO 2, active-low
 
-- [ESP32 Getting Started Guide](https://docs.espressif.com/projects/esp-idf/en/stable/get-started/index.html)
-- [ESP32-S2 Getting Started Guide](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s2/get-started/index.html)
+The default calibration is compiled into the sampler:
 
+- Empty-scale raw offset: `-171000`
+- Calibration span: `395622` raw counts equals `2500 g`
+- Reported gram values are clamped to `0 g` through `5000 g`
 
-## Example folder contents
+## Prerequisites
 
-The project **hello_world** contains one source file in C language [hello_world_main.c](main/hello_world_main.c). The file is located in folder [main](main).
+- ESP-IDF with Component Manager support. The component manifest currently declares `idf >=4.1.0`.
+- Node.js compatible with Vite 5, meaning Node.js `18.x` or `20.x` and newer, plus npm `8` or newer.
+- A serial connection to the ESP32 board for flashing and monitoring.
 
-ESP-IDF projects are built using CMake. The project build configuration is contained in `CMakeLists.txt` files that provide set of directives and instructions describing the project's source files and targets (executable, library, or both).
+Firmware dependencies are declared in `main/idf_component.yml` and are resolved by the ESP-IDF Component Manager:
 
-Below is short explanation of remaining files in the project folder.
+- `esp-idf-lib/hx711`
+- `espressif/mdns`
 
+Install WebUI dependencies once before the first firmware build:
+
+```sh
+cd webui
+npm install
 ```
-├── CMakeLists.txt
-├── pytest_hello_world.py      Python script used for automated testing
-├── main
-│   ├── CMakeLists.txt
-│   └── hello_world_main.c
-└── README.md                  This is the file you are currently reading
+
+The ESP-IDF build runs the WebUI build automatically, so missing `webui/node_modules` will make `idf.py build` fail.
+
+## Repository Layout
+
+- `main/`: ESP-IDF firmware component.
+- `main/main.c`: startup owner and service initialization.
+- `main/app_wifi.*`: WiFi credentials, STA/SoftAP operation, SSID scans.
+- `main/app_web.*`: HTTP server, REST routes, embedded WebUI assets, OTA upload.
+- `main/app_sample.*`: HX711 sampling, calibration, sample JSON, sample interval storage.
+- `main/app_mdns.*`: mDNS hostname and HTTP service advertisement.
+- `main/app_activity_led.*`: activity LED handling.
+- `webui/`: Vite WebUI project.
+- `webui/src/`: WebUI HTML, JavaScript, CSS, and logo source.
+- `webui/mock/`: JSON fixtures for local API simulation.
+- `partitions.csv`: NVS, OTA data, PHY, and dual OTA app partitions.
+- `CONTRIBUTING.md`: developer notes for firmware and WebUI changes.
+
+Generated output is ignored by git, including ESP-IDF build directories, `managed_components/`, `node_modules/`, and `webui/dist/`.
+
+## Build And Flash
+
+Build the firmware from the repository root:
+
+```sh
+idf.py build
 ```
 
-For more information on structure and contents of ESP-IDF projects, please refer to Section [Build System](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/build-system.html) of the ESP-IDF Programming Guide.
+Flash and monitor:
 
-## Troubleshooting
+```sh
+idf.py -p PORT flash monitor
+```
 
-* Program upload failure
+Replace `PORT` with the serial port for the board.
 
-    * Hardware connection is not correct: run `idf.py -p PORT monitor`, and reboot your board to see if there are any output logs.
-    * The baud rate for downloading is too high: lower your baud rate in the `menuconfig` menu, and try again.
+## First Boot And WiFi Provisioning
 
-## Technical support and feedback
+On boot, the firmware starts NVS, the activity LED, the HX711 sampler, WiFi, mDNS, and the HTTP/WebUI server. If the running OTA image is pending verification, it is marked valid only after the validation delay.
 
-Please use the following feedback channels:
+WiFi behavior:
 
-* For technical queries, go to the [esp32.com](https://esp32.com/) forum
-* For a feature request or bug report, create a [GitHub issue](https://github.com/espressif/esp-idf/issues)
+- If stored station credentials exist and work, the device connects to that network.
+- If credentials are missing or connection fails, the device starts a provisioning SoftAP.
+- The SoftAP SSID is `iot-XXXXXX`, where `XXXXXX` comes from the last three MAC address bytes.
+- The SoftAP password is controlled by `CONFIG_APP_WIFI_AP_PASSWORD`.
+- An empty provisioning password means the SoftAP is open.
+- A non-empty provisioning password must be 8 to 63 characters.
 
-We will get back to you as soon as possible.
+After connecting to the provisioning network, open `http://192.168.4.1/`. On station networks that support mDNS, the device is also advertised as `iot-XXXXXX.local`.
+
+## WebUI
+
+The WebUI is a Vite project in `webui/`. It uses browser ES modules and `uPlot`; there is no frontend framework.
+
+Main screens:
+
+- Home: live sample plot.
+- Information: device information and partition table.
+- Update: firmware binary upload.
+- Configuration: WiFi credentials, scanned SSID suggestions, sample interval, reset and reboot actions.
+
+Local development:
+
+```sh
+cd webui
+npm run dev
+```
+
+Build the WebUI:
+
+```sh
+cd webui
+npm run build
+```
+
+The local dev and preview servers include mock API middleware. Fixture-backed `GET` requests read matching files from `webui/mock`; for example, `GET /wifi` reads `webui/mock/wifi.json`. Other configured REST requests are logged and return mock success JSON.
+
+## HTTP API
+
+The firmware uses root-level API paths, not `/api/...` paths.
+
+- `GET /`: embedded WebUI.
+- `GET /assets/index.js`: WebUI JavaScript.
+- `GET /assets/index.css`: WebUI CSS.
+- `GET /info`: device, build, heap, partition, and WiFi summary.
+- `GET /wifi`: WiFi status, stored credentials, and scanned SSID suggestions.
+- `POST /wifi`: save WiFi credentials and restart.
+- `POST /wifi/reset`: clear stored WiFi credentials and restart.
+- `GET /partitions`: runtime partition table and OTA roles.
+- `GET /config`: current configurable values.
+- `POST /config/sample`: save sample interval and restart.
+- `GET /sample`: latest cached HX711 sample.
+- `POST /update`: raw firmware binary OTA upload.
+- `POST /reboot`: restart the device.
+- `POST /config/reset`: erase stored configuration and restart.
+
+Example `GET /sample` response:
+
+```json
+{
+  "incarnation": 7,
+  "sequence_number": 42,
+  "data": [
+    { "value": 2498.6, "unit": "g" },
+    { "value": 224401, "unit": "raw" }
+  ]
+}
+```
+
+Example `GET /config` response:
+
+```json
+{
+  "sampleIntervalMs": 1000,
+  "sampleIntervalMinMs": 100,
+  "sampleIntervalMaxMs": 10000
+}
+```
+
+Example `GET /wifi` response:
+
+```json
+{
+  "hasCredentials": true,
+  "connected": true,
+  "softapActive": false,
+  "ssid": "lab-wifi",
+  "password": "configureme",
+  "ip": "192.168.1.91",
+  "apSsid": "",
+  "availableSsids": ["lab-wifi", "workshop", "guest"]
+}
+```
+
+Mutating endpoints generally return JSON such as:
+
+```json
+{ "ok": true, "restarting": true }
+```
+
+OTA upload is currently unauthenticated. Keep that in mind when deciding which networks can reach the device.
+
+## Notes
+
+- The project uses a custom OTA partition table from `partitions.csv`.
+- Edit WebUI source files under `webui/src/`, not generated files under `webui/dist/`.
+- See `CONTRIBUTING.md` before changing firmware module boundaries, HTTP routes, or WebUI configuration sections.

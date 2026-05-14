@@ -91,7 +91,25 @@ function renderWifi(wifi) {
   state.wifi = wifi;
   $("#ssid").value = wifi.ssid || "";
   $("#password").value = wifi.password || "";
+  renderSsidOptions(wifi.availableSsids || []);
   setText("#wifiStatusText", "");
+}
+
+function renderSsidOptions(ssids) {
+  const options = $("#ssidOptions");
+  options.innerHTML = "";
+
+  const seen = new Set();
+  for (const ssid of ssids) {
+    if (typeof ssid !== "string" || ssid === "" || seen.has(ssid)) {
+      continue;
+    }
+
+    seen.add(ssid);
+    const option = document.createElement("option");
+    option.value = ssid;
+    options.append(option);
+  }
 }
 
 function renderConfig(config) {
