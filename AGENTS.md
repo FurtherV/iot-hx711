@@ -116,6 +116,10 @@ Compacted the verbose historical project plans into a shorter current-state over
 
 Replaced the temporary WebUI firmware mark with a cleaned, brand-colored SVG derived from `converted_graphic_smooth.svg`. Kept the logo as an image-only mark, integrated it through the existing `firmware-logo.svg?raw` import path, adjusted the header logo sizing for the wider shape, and removed the root-level source SVG after moving its usable content into the WebUI asset.
 
+## Iteration 11 - Spring Cleaning
+
+Removed tracked ESP-IDF hello-world/template leftovers and machine-local project files that were no longer relevant to the HX711 firmware: the hello-world pytest, empty CI sdkconfig, duplicate WebUI README, and committed VS Code settings. Kept current firmware, WebUI, dependency lock, partition config, devcontainer, and clangd configuration intact.
+
 # Test Policy
 
 Codex must not run ESP-IDF tests, builds, compile checks, flashes, or automatic ESP-IDF dependency installs. Human developer should run ESP-IDF verification. Frontend-only checks such as `npm run build` may be run when WebUI files are changed and dependencies are already installed.
