@@ -95,14 +95,14 @@ input {
 }
 
 .screen-logo {
-  min-height: 72px;
+  min-height: 84px;
   display: grid;
   place-items: center;
 }
 
 .screen-logo svg {
   display: block;
-  width: min(72px, 100%);
+  width: min(128px, 100%);
   height: auto;
   filter: drop-shadow(0 8px 16px rgba(38, 43, 52, 0.08));
 }

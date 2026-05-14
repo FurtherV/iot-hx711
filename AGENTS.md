@@ -112,6 +112,10 @@ Replaced the Home scalar sample display with a uPlot chart using a fixed 0 g to 
 
 Compacted the verbose historical project plans into a shorter current-state overview, root-level API reference, concise iteration ledger, and explicit test policy. Preserved the agent constraints and current firmware/WebUI structure notes so future changes have less duplicated history to scan.
 
+## Iteration 10 - Brand Logo Update
+
+Replaced the temporary WebUI firmware mark with a cleaned, brand-colored SVG derived from `converted_graphic_smooth.svg`. Kept the logo as an image-only mark, integrated it through the existing `firmware-logo.svg?raw` import path, adjusted the header logo sizing for the wider shape, and removed the root-level source SVG after moving its usable content into the WebUI asset.
+
 # Test Policy
 
 Codex must not run ESP-IDF tests, builds, compile checks, flashes, or automatic ESP-IDF dependency installs. Human developer should run ESP-IDF verification. Frontend-only checks such as `npm run build` may be run when WebUI files are changed and dependencies are already installed.

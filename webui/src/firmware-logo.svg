@@ -1,5 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" role="img" aria-labelledby="title">
-  <title id="title">Firmware logo</title>
-  <rect x="6" y="6" width="60" height="60" rx="8" fill="#24272e"/>
-  <path d="M22 24h28M22 36h28M22 48h28" fill="none" stroke="#f58220" stroke-width="5" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 299 168" role="img" aria-labelledby="title">
+  <title id="title">iot_hx711 logo</title>
+  <path fill="#24272e" d="M76 66c0-12 32-21 74-21s73.47 9.01 74 21c.34 7.68-.22 14.4-.42 20.25l-8.72 58.88c-1 7-33.86 10.87-47.86 12.87-14 3-32 2-47-1-17-3-30-8-34-14L76 66Z"/>
+  <path fill="#ffffff" d="M89 66c0-9 27-16 61-16s61 7 61 16-27 16-61 16-61-7-61-16Z"/>
+  <path fill="#24272e" d="M99 66c0-6 23-11 51-11s51 5 51 11-23 11-51 11-51-5-51-11Z"/>
+  <g fill="none" stroke="#f58220" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M139 67c7-4 6-18 8-29 2-16 6-29 14-24 6 4 4 13 1 17" stroke-width="8"/>
+    <path d="M129 22c1-9 7-14 14-10 5 3 8 9 8 14" stroke-width="6"/>
+  </g>
 </svg>
