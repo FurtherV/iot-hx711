@@ -1,0 +1,17 @@
+{
+  "appName": "iot_hx711",
+  "appVersion": "local-dev",
+  "idfVersion": "v6.0.1",
+  "target": "esp32",
+  "freeHeap": 184320,
+  "minFreeHeap": 151552,
+  "partition": "ota_0",
+  "wifi": {
+    "hasCredentials": true,
+    "connected": true,
+    "softapActive": false,
+    "ssid": "lab-wifi",
+    "ip": "192.168.1.91",
+    "apSsid": ""
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "incarnation": 7,
+  "sequence_number": 42,
+  "data": [
+    {
+      "value": 2498.6,
+      "unit": "g"
+    },
+    {
+      "value": 224401,
+      "unit": "raw"
+    }
+  ]
+}

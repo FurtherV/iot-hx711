@@ -2,7 +2,6 @@
 
 - Always keep `show_greetings` in `main.c` intact
 - Always run `show_greetings` as the first instruction in `app_main`
-- Never run any tests or compile checks, forward these tasks to the human developer
 - Never automatically install any additional libraries, forward these tasks to the human developer
 
 # Previous Project Plans
@@ -295,3 +294,42 @@ after restart, the device starts provisioning SoftAP when no credentials remain
 existing Save and Restart WiFi credential flow still works
 activity LED is idle at the configured off level
 activity LED pulses with active-low polarity during web requests and POST body handling
+
+## Iteration 6
+
+Vite WebUI Build, Local Simulation, And Gzip Embedding
+Summary
+Upgrade the WebUI from raw embedded files to a Vite-based frontend with local API simulation and gzip-only firmware assets.
+
+Key Changes
+WebUI build:
+move WebUI source files under webui/src
+add Vite project metadata and npm scripts for dev, build, and preview
+add a gzip post-build script that compresses generated dist assets
+keep webui/dist generated and ignored
+
+Local simulation:
+add configurable mock API middleware for Vite dev and preview
+serve fixture-backed GET responses from matching JSON files under webui/mock
+include fixtures for /api/info, /api/wifi, /api/partitions, and /sample
+log non-GET REST requests such as WiFi save, WiFi forget, and OTA upload
+
+Firmware integration:
+run npm run build from ESP-IDF CMake before embedding WebUI assets
+embed only gzipped Vite output files
+serve /, /assets/index.js, and /assets/index.css with Content-Encoding: gzip
+preserve existing firmware API routes and behavior
+
+Test Plan For Human Developer
+Codex must not run tests, builds, compile checks, or automatic dependency installs.
+Human developer should run:
+cd webui && npm install
+npm run dev
+npm run build
+idf.py build
+Human developer should verify:
+local WebUI loads through Vite
+GET mock endpoints return fixture JSON
+POST REST flows are logged by the local server
+webui/dist contains index.html.gz, assets/index.js.gz, and assets/index.css.gz
+firmware build embeds the gzipped WebUI assets

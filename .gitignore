@@ -41,6 +41,10 @@ sdkconfig
 **/components/.idf/
 # For modern ESP-IDF component manager
 managed_components/
+# JavaScript dependencies
+node_modules/
+**/node_modules/
+webui/dist/
 # If ESP-IDF tools are installed/referenced locally to the project
 .espressif/
 

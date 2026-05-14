@@ -1,0 +1,59 @@
+{
+  "partitions": [
+    {
+      "label": "nvs",
+      "type": "data",
+      "subtype": "nvs",
+      "address": 36864,
+      "size": 24576,
+      "encrypted": false,
+      "running": false,
+      "boot": false,
+      "nextUpdate": false
+    },
+    {
+      "label": "otadata",
+      "type": "data",
+      "subtype": "ota",
+      "address": 61440,
+      "size": 8192,
+      "encrypted": false,
+      "running": false,
+      "boot": false,
+      "nextUpdate": false
+    },
+    {
+      "label": "phy_init",
+      "type": "data",
+      "subtype": "phy",
+      "address": 69632,
+      "size": 4096,
+      "encrypted": false,
+      "running": false,
+      "boot": false,
+      "nextUpdate": false
+    },
+    {
+      "label": "ota_0",
+      "type": "app",
+      "subtype": "ota_0",
+      "address": 73728,
+      "size": 1572864,
+      "encrypted": false,
+      "running": true,
+      "boot": true,
+      "nextUpdate": false
+    },
+    {
+      "label": "ota_1",
+      "type": "app",
+      "subtype": "ota_1",
+      "address": 1646592,
+      "size": 1572864,
+      "encrypted": false,
+      "running": false,
+      "boot": false,
+      "nextUpdate": true
+    }
+  ]
+}
