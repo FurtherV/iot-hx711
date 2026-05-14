@@ -28,7 +28,7 @@ async function loadMockConfig() {
   const config = JSON.parse(raw);
   return {
     fixtureRoutes: new Set(config.fixtureRoutes || []),
-    restPrefixes: config.restPrefixes || ["/info", "/wifi", "/partitions", "/sample", "/update"],
+    restPrefixes: config.restPrefixes || ["/info", "/wifi", "/partitions", "/sample", "/update", "/reboot", "/config"],
     successResponses: config.successResponses || {},
   };
 }

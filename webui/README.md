@@ -17,6 +17,7 @@ For example, `GET /info` returns `mock/info.json`.
 
 All other configured REST requests are logged by the local server and return a small mocked success response when configured.
 The same mock middleware is active for `npm run preview`.
+The UI uses plain browser ES modules through Vite; no frontend framework is required.
 
 ## Firmware assets
 

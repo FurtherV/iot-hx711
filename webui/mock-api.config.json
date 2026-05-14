@@ -3,14 +3,17 @@
     "/info",
     "/wifi",
     "/partitions",
-    "/sample"
+    "/sample",
+    "/config"
   ],
   "restPrefixes": [
     "/info",
     "/wifi",
     "/partitions",
     "/sample",
-    "/update"
+    "/update",
+    "/reboot",
+    "/config"
   ],
   "successResponses": {
     "/wifi": {
@@ -18,13 +21,29 @@
       "restarting": true,
       "mocked": true
     },
-    "/wifi/forget": {
+    "/wifi/reset": {
       "ok": true,
       "restarting": true,
       "mocked": true
     },
     "/update": {
       "ok": true,
+      "restarting": true,
+      "mocked": true
+    },
+    "/reboot": {
+      "ok": true,
+      "restarting": true,
+      "mocked": true
+    },
+    "/config/sample": {
+      "ok": true,
+      "restarting": true,
+      "mocked": true
+    },
+    "/config/reset": {
+      "ok": true,
+      "resetting": true,
       "restarting": true,
       "mocked": true
     }

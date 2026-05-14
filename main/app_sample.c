@@ -17,6 +17,7 @@
 
 #define APP_SAMPLE_NAMESPACE "app_state"
 #define APP_SAMPLE_INCARNATION_KEY "incarnation"
+#define APP_SAMPLE_INTERVAL_KEY "sample_interval_ms"
 #define APP_SAMPLE_JSON_MAX_LEN 256
 #define APP_SAMPLE_AVERAGE_TIMES 4
 #define APP_SAMPLE_TARE_OFFSET_RAW (-171000)
@@ -31,6 +32,7 @@ static SemaphoreHandle_t s_sample_lock;
 static char s_sample_json[APP_SAMPLE_JSON_MAX_LEN];
 static uint32_t s_incarnation;
 static uint32_t s_sequence_number;
+static uint32_t s_sample_interval_ms = APP_SAMPLE_INTERVAL_DEFAULT_MS;
 
 static esp_err_t load_next_incarnation(uint32_t *incarnation)
 {
@@ -57,6 +59,37 @@ static esp_err_t load_next_incarnation(uint32_t *incarnation)
 
     if (err == ESP_OK) {
         *incarnation = current;
+    }
+    return err;
+}
+
+static esp_err_t load_sample_interval(uint32_t *interval_ms)
+{
+    nvs_handle_t nvs;
+    esp_err_t err = nvs_open(APP_SAMPLE_NAMESPACE, NVS_READONLY, &nvs);
+    if (err == ESP_ERR_NVS_NOT_FOUND) {
+        *interval_ms = APP_SAMPLE_INTERVAL_DEFAULT_MS;
+        return ESP_OK;
+    }
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    uint32_t stored_interval = APP_SAMPLE_INTERVAL_DEFAULT_MS;
+    err = nvs_get_u32(nvs, APP_SAMPLE_INTERVAL_KEY, &stored_interval);
+    nvs_close(nvs);
+
+    if (err == ESP_ERR_NVS_NOT_FOUND) {
+        stored_interval = APP_SAMPLE_INTERVAL_DEFAULT_MS;
+        err = ESP_OK;
+    }
+    if (err == ESP_OK &&
+        (stored_interval < APP_SAMPLE_INTERVAL_MIN_MS || stored_interval > APP_SAMPLE_INTERVAL_MAX_MS)) {
+        ESP_LOGW(TAG, "Ignoring invalid stored sample interval: %" PRIu32 " ms", stored_interval);
+        stored_interval = APP_SAMPLE_INTERVAL_DEFAULT_MS;
+    }
+    if (err == ESP_OK) {
+        *interval_ms = stored_interval;
     }
     return err;
 }
@@ -154,7 +187,7 @@ static void sample_task(void *arg)
             ESP_LOGW(TAG, "HX711 sample read failed: %s", esp_err_to_name(err));
         }
 
-        vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(1000));
+        vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(s_sample_interval_ms));
     }
 }
 
@@ -177,6 +210,13 @@ esp_err_t app_sample_start(void)
         return err;
     }
     s_sequence_number = 0;
+    err = load_sample_interval(&s_sample_interval_ms);
+    if (err != ESP_OK) {
+        vSemaphoreDelete(s_sample_lock);
+        s_sample_lock = NULL;
+        ESP_LOGE(TAG, "Failed to load sample interval: %s", esp_err_to_name(err));
+        return err;
+    }
     cache_sample_json(APP_SAMPLE_TARE_OFFSET_RAW);
 
     BaseType_t created = xTaskCreate(sample_task, "sample_task", 4096, NULL, 5, NULL);
@@ -186,7 +226,9 @@ esp_err_t app_sample_start(void)
         return ESP_ERR_NO_MEM;
     }
 
-    ESP_LOGI(TAG, "Sample service started with incarnation %" PRIu32, s_incarnation);
+    ESP_LOGI(TAG, "Sample service started with incarnation %" PRIu32 " and interval %" PRIu32 " ms",
+             s_incarnation,
+             s_sample_interval_ms);
     return ESP_OK;
 }
 
@@ -208,4 +250,29 @@ esp_err_t app_sample_get_json(char *buffer, size_t buffer_len)
     }
 
     return ESP_OK;
+}
+
+uint32_t app_sample_get_interval_ms(void)
+{
+    return s_sample_interval_ms;
+}
+
+esp_err_t app_sample_save_interval_ms(uint32_t interval_ms)
+{
+    if (interval_ms < APP_SAMPLE_INTERVAL_MIN_MS || interval_ms > APP_SAMPLE_INTERVAL_MAX_MS) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    nvs_handle_t nvs;
+    esp_err_t err = nvs_open(APP_SAMPLE_NAMESPACE, NVS_READWRITE, &nvs);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    err = nvs_set_u32(nvs, APP_SAMPLE_INTERVAL_KEY, interval_ms);
+    if (err == ESP_OK) {
+        err = nvs_commit(nvs);
+    }
+    nvs_close(nvs);
+    return err;
 }

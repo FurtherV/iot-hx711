@@ -193,6 +193,7 @@ esp_err_t app_wifi_start(void)
 
     s_status.has_credentials = true;
     strlcpy(s_status.ssid, ssid, sizeof(s_status.ssid));
+    strlcpy(s_status.password, password, sizeof(s_status.password));
 
     wifi_config_t sta_config = {0};
     strlcpy((char *)sta_config.sta.ssid, ssid, sizeof(sta_config.sta.ssid));

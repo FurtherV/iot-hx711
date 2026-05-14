@@ -16,6 +16,7 @@ typedef struct {
     bool connected;
     bool softap_active;
     char ssid[APP_WIFI_SSID_MAX_LEN + 1];
+    char password[APP_WIFI_PASSWORD_MAX_LEN + 1];
     char ip[APP_WIFI_IP_MAX_LEN];
     char ap_ssid[APP_WIFI_SSID_MAX_LEN + 1];
 } app_wifi_status_t;

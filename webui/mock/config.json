@@ -1,0 +1,5 @@
+{
+  "sampleIntervalMs": 1000,
+  "sampleIntervalMinMs": 100,
+  "sampleIntervalMaxMs": 10000
+}

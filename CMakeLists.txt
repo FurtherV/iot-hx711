@@ -37,6 +37,7 @@ set(WEBUI_BUILD_DEPS
     "${WEBUI_DIR}/src/index.html"
     "${WEBUI_DIR}/src/script.mjs"
     "${WEBUI_DIR}/src/style.css"
+    "${WEBUI_DIR}/src/firmware-logo.svg"
 )
 
 if(EXISTS "${WEBUI_DIR}/package-lock.json")

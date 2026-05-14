@@ -3,6 +3,7 @@
   "connected": true,
   "softapActive": false,
   "ssid": "lab-wifi",
+  "password": "configureme",
   "ip": "192.168.1.91",
   "apSsid": ""
 }

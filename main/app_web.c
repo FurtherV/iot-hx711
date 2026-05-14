@@ -17,6 +17,7 @@
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "nvs_flash.h"
 #include "sdkconfig.h"
 
 extern const unsigned char webui_index_html_gz_start[] asm("_binary_webui_index_html_gz_start");
@@ -184,13 +185,14 @@ static esp_err_t wifi_get_handler(httpd_req_t *req)
     app_wifi_status_t wifi;
     app_wifi_get_status(&wifi);
 
-    char json[384];
+    char json[512];
     int len = snprintf(json, sizeof(json),
                        "{"
                        "\"hasCredentials\":%s,"
                        "\"connected\":%s,"
                        "\"softapActive\":%s,"
                        "\"ssid\":\"%s\","
+                       "\"password\":\"%s\","
                        "\"ip\":\"%s\","
                        "\"apSsid\":\"%s\""
                        "}",
@@ -198,6 +200,7 @@ static esp_err_t wifi_get_handler(httpd_req_t *req)
                        bool_text(wifi.connected),
                        bool_text(wifi.softap_active),
                        wifi.ssid,
+                       wifi.password,
                        wifi.ip,
                        wifi.ap_ssid);
 
@@ -296,6 +299,31 @@ static esp_err_t partitions_get_handler(httpd_req_t *req)
     return httpd_resp_sendstr_chunk(req, NULL);
 }
 
+static esp_err_t config_get_handler(httpd_req_t *req)
+{
+    app_activity_led_pulse();
+
+    char json[160];
+    int len = snprintf(json, sizeof(json),
+                       "{"
+                       "\"sampleIntervalMs\":%" PRIu32 ","
+                       "\"sampleIntervalMinMs\":%u,"
+                       "\"sampleIntervalMaxMs\":%u"
+                       "}",
+                       app_sample_get_interval_ms(),
+                       APP_SAMPLE_INTERVAL_MIN_MS,
+                       APP_SAMPLE_INTERVAL_MAX_MS);
+
+    if (len < 0 || len >= (int)sizeof(json)) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Config response too large");
+        return ESP_FAIL;
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+    return httpd_resp_sendstr(req, json);
+}
+
 static bool extract_json_string(const char *json, const char *key, char *out, size_t out_len)
 {
     char pattern[32];
@@ -332,9 +360,58 @@ static bool extract_json_string(const char *json, const char *key, char *out, si
     return *cursor == '"';
 }
 
+static bool extract_json_u32(const char *json, const char *key, uint32_t *out)
+{
+    char pattern[32];
+    snprintf(pattern, sizeof(pattern), "\"%s\"", key);
+
+    const char *cursor = strstr(json, pattern);
+    if (cursor == NULL) {
+        return false;
+    }
+
+    cursor = strchr(cursor + strlen(pattern), ':');
+    if (cursor == NULL) {
+        return false;
+    }
+
+    cursor++;
+    while (*cursor == ' ' || *cursor == '\t') {
+        cursor++;
+    }
+
+    if (*cursor < '0' || *cursor > '9') {
+        return false;
+    }
+
+    uint32_t value = 0;
+    while (*cursor >= '0' && *cursor <= '9') {
+        uint32_t digit = (uint32_t)(*cursor - '0');
+        if (value > (UINT32_MAX - digit) / 10) {
+            return false;
+        }
+        value = value * 10 + digit;
+        cursor++;
+    }
+
+    *out = value;
+    return true;
+}
+
 static void restart_task(void *arg)
 {
     vTaskDelay(pdMS_TO_TICKS(750));
+    esp_restart();
+}
+
+static void reset_config_task(void *arg)
+{
+    vTaskDelay(pdMS_TO_TICKS(750));
+    nvs_flash_deinit();
+    esp_err_t err = nvs_flash_erase();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to erase NVS configuration: %s", esp_err_to_name(err));
+    }
     esp_restart();
 }
 
@@ -381,14 +458,78 @@ static esp_err_t wifi_post_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-static esp_err_t wifi_forget_post_handler(httpd_req_t *req)
+static esp_err_t wifi_reset_post_handler(httpd_req_t *req)
 {
     app_activity_led_pulse();
 
     esp_err_t err = app_wifi_forget_credentials();
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to forget WiFi credentials: %s", esp_err_to_name(err));
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to forget credentials");
+        ESP_LOGE(TAG, "Failed to reset WiFi credentials: %s", esp_err_to_name(err));
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to reset WiFi credentials");
+        return ESP_FAIL;
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"ok\":true,\"restarting\":true}");
+    xTaskCreate(restart_task, "restart_task", 2048, NULL, 5, NULL);
+    return ESP_OK;
+}
+
+static esp_err_t reboot_post_handler(httpd_req_t *req)
+{
+    app_activity_led_pulse();
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"ok\":true,\"restarting\":true}");
+    xTaskCreate(restart_task, "restart_task", 2048, NULL, 5, NULL);
+    return ESP_OK;
+}
+
+static esp_err_t config_reset_post_handler(httpd_req_t *req)
+{
+    app_activity_led_pulse();
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"ok\":true,\"resetting\":true,\"restarting\":true}");
+    xTaskCreate(reset_config_task, "config_reset_task", 3072, NULL, 5, NULL);
+    return ESP_OK;
+}
+
+static esp_err_t config_sample_post_handler(httpd_req_t *req)
+{
+    app_activity_led_pulse();
+
+    if (req->content_len <= 0 || req->content_len >= APP_POST_BODY_MAX_LEN) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid request body");
+        return ESP_FAIL;
+    }
+
+    char body[APP_POST_BODY_MAX_LEN] = {0};
+    int received = 0;
+    while (received < req->content_len) {
+        int ret = httpd_req_recv(req, body + received, req->content_len - received);
+        if (ret <= 0) {
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to read body");
+            return ESP_FAIL;
+        }
+        received += ret;
+        app_activity_led_pulse();
+    }
+
+    uint32_t sample_interval_ms = 0;
+    if (!extract_json_u32(body, "sampleIntervalMs", &sample_interval_ms)) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Expected sampleIntervalMs");
+        return ESP_FAIL;
+    }
+
+    esp_err_t err = app_sample_save_interval_ms(sample_interval_ms);
+    if (err == ESP_ERR_INVALID_ARG) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid sample interval");
+        return ESP_FAIL;
+    }
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to store sample interval: %s", esp_err_to_name(err));
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to store sample interval");
         return ESP_FAIL;
     }
 
@@ -467,7 +608,7 @@ static esp_err_t update_post_handler(httpd_req_t *req)
 esp_err_t app_web_start(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.max_uri_handlers = 12;
+    config.max_uri_handlers = 14;
     config.uri_match_fn = httpd_uri_match_wildcard;
 
     httpd_handle_t server = NULL;
@@ -483,10 +624,14 @@ esp_err_t app_web_start(void)
         {.uri = "/info", .method = HTTP_GET, .handler = info_get_handler},
         {.uri = "/wifi", .method = HTTP_GET, .handler = wifi_get_handler},
         {.uri = "/wifi", .method = HTTP_POST, .handler = wifi_post_handler},
-        {.uri = "/wifi/forget", .method = HTTP_POST, .handler = wifi_forget_post_handler},
+        {.uri = "/wifi/reset", .method = HTTP_POST, .handler = wifi_reset_post_handler},
         {.uri = "/partitions", .method = HTTP_GET, .handler = partitions_get_handler},
+        {.uri = "/config", .method = HTTP_GET, .handler = config_get_handler},
+        {.uri = "/config/sample", .method = HTTP_POST, .handler = config_sample_post_handler},
         {.uri = "/sample", .method = HTTP_GET, .handler = sample_get_handler},
         {.uri = "/update", .method = HTTP_POST, .handler = update_post_handler},
+        {.uri = "/reboot", .method = HTTP_POST, .handler = reboot_post_handler},
+        {.uri = "/config/reset", .method = HTTP_POST, .handler = config_reset_post_handler},
     };
 
     for (size_t i = 0; i < sizeof(routes) / sizeof(routes[0]); i++) {

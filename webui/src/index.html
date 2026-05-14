@@ -8,116 +8,166 @@
     <script type="module" src="./script.mjs"></script>
   </head>
   <body>
-    <header class="app-header">
-      <div>
-        <p class="eyebrow">Edge Device</p>
-        <h1>iot_hx711</h1>
-      </div>
-      <div class="status-pill" id="connectionStatus">Starting</div>
-    </header>
-
-    <nav class="tabs" aria-label="Primary">
-      <button class="tab active" data-tab="home" type="button">Home</button>
-      <button class="tab" data-tab="information" type="button">Information</button>
-      <button class="tab" data-tab="update" type="button">Update</button>
-      <button class="tab" data-tab="configuration" type="button">Configuration</button>
-    </nav>
-
-    <main>
-      <section class="panel active" id="home" aria-labelledby="homeTab">
-        <div class="grid">
-          <article class="card metric">
-            <span>Network</span>
-            <strong id="networkMode">Unknown</strong>
-          </article>
-          <article class="card metric">
-            <span>IP Address</span>
-            <strong id="ipAddress">-</strong>
-          </article>
-          <article class="card metric">
-            <span>Partition</span>
-            <strong id="partition">-</strong>
-          </article>
-          <article class="card metric sample-metric">
-            <span>Sample</span>
-            <strong><span id="sampleValue">-</span> <small id="sampleUnit">g</small></strong>
-            <p id="sampleMeta">Waiting for sample</p>
-          </article>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <span>Navigation</span>
         </div>
-      </section>
+        <nav class="sidebar-tabs" aria-label="Primary">
+          <button class="nav-tab active" data-tab="home" data-title="iot_hx711" type="button">Home</button>
+          <button class="nav-tab" data-tab="information" data-title="Information" type="button">Information</button>
+          <button class="nav-tab" data-tab="update" data-title="Update" type="button">Update</button>
+          <button class="nav-tab" data-tab="configuration" data-title="Configuration" type="button">Configuration</button>
+        </nav>
+      </aside>
 
-      <section class="panel" id="information">
-        <article class="card">
-          <h2>Device Information</h2>
-          <dl class="details" id="details"></dl>
-        </article>
-      </section>
+      <main class="workspace">
+        <section class="screen-logo" id="firmwareLogo" aria-label="Firmware logo"></section>
+        <section class="screen-title">
+          <p class="eyebrow">Edge Firmware</p>
+          <h1 id="screenTitle">iot_hx711</h1>
+        </section>
 
-      <section class="panel" id="update">
-        <article class="card">
-          <h2>Partition Structure</h2>
-          <div class="table-wrap">
-            <table class="partition-table">
-              <thead>
-                <tr>
-                  <th>Label</th>
-                  <th>Type</th>
-                  <th>Subtype</th>
-                  <th>Offset</th>
-                  <th>Size</th>
-                  <th>Role</th>
-                </tr>
-              </thead>
-              <tbody id="partitionRows">
-                <tr>
-                  <td colspan="6">Loading partitions</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <p class="message" id="partitionMessage">Reading partition table.</p>
-        </article>
+        <section class="screen-content">
+          <section class="panel active" id="home">
+            <article class="sensor-dashboard">
+              <div class="sample-plot" id="samplePlot"></div>
+            </article>
+          </section>
 
-        <article class="card update-card">
-          <div class="card-heading">
-            <div>
-              <h2>Firmware Update</h2>
-              <p>Upload an ESP-IDF application binary.</p>
+          <section class="panel" id="information">
+            <div class="content-grid two-column">
+              <article class="card">
+                <h2>Device Information</h2>
+                <dl class="details" id="details"></dl>
+              </article>
+
+              <article class="card">
+                <h2>Partition Structure</h2>
+                <div class="table-wrap">
+                  <table class="partition-table">
+                    <thead>
+                      <tr>
+                        <th>Label</th>
+                        <th>Type</th>
+                        <th>Subtype</th>
+                        <th>Offset</th>
+                        <th>Size</th>
+                        <th>Role</th>
+                      </tr>
+                    </thead>
+                    <tbody id="partitionRows">
+                      <tr>
+                        <td colspan="6">Loading partitions</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p class="message" id="partitionMessage">Reading partition table.</p>
+              </article>
             </div>
-          </div>
-          <form id="otaForm" class="form">
-            <label class="file-input">
-              <input id="firmwareFile" type="file" accept=".bin,application/octet-stream">
-              <span id="firmwareName">Choose firmware .bin</span>
-            </label>
-            <button class="primary" type="submit">Upload</button>
-            <p class="message" id="otaMessage">Idle</p>
-          </form>
-        </article>
-      </section>
+          </section>
 
-      <section class="panel" id="configuration">
-        <article class="card">
-          <h2>WiFi Configuration</h2>
-          <form id="wifiForm" class="form">
-            <label>
-              <span>SSID</span>
-              <input id="ssid" name="ssid" type="text" maxlength="32" autocomplete="off" required>
-            </label>
-            <label>
-              <span>Password</span>
-              <input id="password" name="password" type="password" maxlength="64" autocomplete="current-password">
-            </label>
-            <button class="primary" type="submit">Save and Restart</button>
-            <p class="message" id="wifiMessage">Credentials are stored on the device.</p>
-          </form>
-          <div class="danger-zone">
-            <h2>Forget WiFi</h2>
-            <button class="secondary danger" id="forgetWifiButton" type="button">Forget and Restart</button>
-            <p class="message" id="forgetWifiMessage">Clears only the stored WiFi credentials.</p>
-          </div>
-        </article>
-      </section>
-    </main>
+          <section class="panel" id="update">
+            <article class="card update-card">
+              <h2>Firmware Update</h2>
+              <form id="otaForm" class="form">
+                <label class="file-input">
+                  <input id="firmwareFile" type="file" accept=".bin,application/octet-stream">
+                  <span id="firmwareName">Choose firmware .bin</span>
+                </label>
+                <div class="progress-shell" aria-label="Firmware upload progress">
+                  <div class="progress-bar" id="otaProgressBar"></div>
+                </div>
+                <div class="form-actions">
+                  <button class="primary" type="submit">Upload Firmware</button>
+                  <p class="message" id="otaMessage">Idle</p>
+                </div>
+              </form>
+            </article>
+          </section>
+
+          <section class="panel" id="configuration">
+            <div class="config-stack">
+              <section class="config-section" data-config-section="wifi">
+                <div class="section-heading">
+                  <div>
+                    <h2>WiFi</h2>
+                    <p class="message hidden" id="wifiStatusText"></p>
+                  </div>
+                </div>
+
+                <form id="wifiForm" class="form config-form">
+                  <label>
+                    <span>SSID</span>
+                    <input id="ssid" name="ssid" type="text" maxlength="32" autocomplete="off" required>
+                  </label>
+                  <label>
+                    <span>Password</span>
+                    <span class="password-row">
+                      <input id="password" name="password" type="password" maxlength="64" autocomplete="current-password">
+                      <button class="icon-button" id="togglePasswordButton" type="button" aria-label="Show password" title="Show password">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
+                          <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                      </button>
+                    </span>
+                  </label>
+                  <div class="form-actions">
+                    <button class="primary" type="submit">Save and Restart</button>
+                    <button class="secondary danger" id="resetWifiButton" type="button">Reset WiFi</button>
+                    <p class="message hidden" id="wifiMessage"></p>
+                  </div>
+                </form>
+              </section>
+
+              <section class="config-section" data-config-section="sampling">
+                <div class="section-heading">
+                  <div>
+                    <h2>Sampling</h2>
+                  </div>
+                </div>
+
+                <form id="sampleConfigForm" class="form config-form">
+                  <label>
+                    <span>Sample interval (ms)</span>
+                    <input id="sampleIntervalMs" name="sampleIntervalMs" type="number" min="100" max="10000" step="50" required>
+                  </label>
+                  <p class="message" id="sampleIntervalRange">Allowed range: 100-10000 ms</p>
+                  <div class="form-actions">
+                    <button class="primary" type="submit">Save and Restart</button>
+                    <p class="message hidden" id="sampleConfigMessage"></p>
+                  </div>
+                </form>
+              </section>
+
+              <section class="config-section danger-section" data-config-section="device">
+                <div class="section-heading">
+                  <div>
+                    <h2>Device Actions</h2>
+                  </div>
+                </div>
+                <div class="form-actions stacked-actions">
+                  <button class="secondary danger" id="resetConfigButton" type="button">Reset All Configuration</button>
+                  <button class="secondary" id="rebootButton" type="button">Reboot</button>
+                  <p class="message hidden" id="deviceActionMessage"></p>
+                </div>
+              </section>
+            </div>
+          </section>
+        </section>
+
+        <footer class="screen-footer" id="screenFooter" aria-label="Hints"></footer>
+      </main>
+    </div>
+
+    <dialog class="app-dialog" id="appDialog">
+      <form method="dialog">
+        <h2 id="dialogTitle">Status</h2>
+        <p id="dialogMessage"></p>
+        <button class="primary" value="ok">OK</button>
+      </form>
+    </dialog>
   </body>
 </html>

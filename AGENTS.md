@@ -1,8 +1,10 @@
 # Project Information
 
+## AGENT Limitations and Project Constraints
+
 - Always keep `show_greetings` in `main.c` intact
 - Always run `show_greetings` as the first instruction in `app_main`
-- Never automatically install any additional libraries, forward these tasks to the human developer
+- Never automatically install any additional libraries in esp-idf, forward these tasks to the human developer
 
 # Previous Project Plans
 
@@ -365,3 +367,49 @@ local Forget WiFi posts to /wifi/forget
 local OTA upload still posts to /update
 on-device WebUI populates all tabs through the new paths
 old /api routes no longer work
+
+## Iteration 8
+
+WebUI Dashboard Chart, Sample Interval Configuration, And Session Tab Persistence
+Summary
+Refine the WebUI dashboard with a uPlot sample chart, configurable sample interval, and browser-session tab persistence.
+
+Key Changes
+Home chart:
+replace the Home scalar sample display with a uPlot line chart
+plot calibrated grams from /sample
+use a fixed 0 g to 5500 g Y axis
+keep a rolling 60-point sample history
+remove the Home screen Live Sensor and Live calibrated reading text
+
+Sampling configuration:
+add a Sampling section to Configuration
+add sampleIntervalMs with valid range 100 to 10000 ms
+persist the sample interval in NVS under app_state
+default sample interval is 1000 ms
+firmware sampler uses the stored interval after restart
+WebUI polling interval is initialized from GET /config
+POST /config/sample stores a new interval and restarts the device
+
+WebUI session behavior:
+store the active screen in sessionStorage
+restore the active screen after page reload
+fall back to Home when no valid session screen exists
+
+Local simulation:
+add uplot as a frontend dependency
+add GET /config fixture data
+add mock success response for POST /config/sample
+
+Test Plan For Human Developer
+Codex must not run ESP-IDF tests, builds, or compile checks.
+Human developer should run:
+npm run build
+idf.py build
+Human developer should verify:
+Home shows the uPlot chart and no scalar sample text
+chart updates from /sample at the configured interval
+Sampling section saves interval values from 100 to 10000 ms
+invalid sample intervals are rejected
+device restarts after saving a sample interval
+active WebUI screen survives page reload within the same browser session
