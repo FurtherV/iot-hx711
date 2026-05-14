@@ -126,6 +126,10 @@ Removed tracked ESP-IDF hello-world/template leftovers and machine-local project
 
 Added an OpenAPI YAML contract for the root-level REST API, integrated Redocly CLI into the WebUI build, generated a standalone API reference at `/api.html`, embedded the gzipped documentation page into firmware, and linked to it from the WebUI footer on every screen.
 
+## Iteration 13 - GitHub Release Firmware Artifacts
+
+Added a GitHub Actions release workflow that builds firmware for strict semver tags matching `vMAJOR.MINOR.PATCH` and for manually published GitHub Releases with matching tags. The workflow uses Espressif's ESP-IDF v6.0.1 Docker container, installs Node.js 24 inside the container, runs `npm ci` and `idf.py build`, then publishes an OTA app binary plus a flash bundle containing bootloader, partition table, OTA data image, app image, flash metadata, and checksums. Updated README/CONTRIBUTING so release triggering and artifact meanings are human-facing while developer maintenance notes stay in CONTRIBUTING.
+
 # Test Policy
 
 Codex must not run ESP-IDF tests, builds, compile checks, flashes, or automatic ESP-IDF dependency installs. Human developer should run ESP-IDF verification. Frontend-only checks such as `npm run build` may be run when WebUI files are changed and dependencies are already installed.

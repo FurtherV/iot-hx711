@@ -1,0 +1,147 @@
+name: Release firmware
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  release:
+    types:
+      - published
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-firmware-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-release:
+    name: Build and publish firmware
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Resolve release tag
+        id: release
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${EVENT_NAME}" == "release" ]]; then
+            tag="${RELEASE_TAG}"
+          else
+            tag="${REF_NAME}"
+          fi
+
+          if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Release tag '${tag}' must match vMAJOR.MINOR.PATCH, for example v1.0.0."
+            exit 1
+          fi
+
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+
+      - name: Check out release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.release.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Restore npm cache
+        uses: actions/cache@v4
+        with:
+          path: .npm-cache
+          key: ${{ runner.os }}-npm-${{ hashFiles('webui/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      - name: Build firmware in ESP-IDF container
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: "v6.0.1"
+          target: esp32
+          path: "."
+          command: |
+            set -euo pipefail
+            apt-get update
+            apt-get install -y ca-certificates curl gnupg
+            curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+            apt-get install -y nodejs
+            node --version
+            npm --version
+            cd webui
+            npm ci --cache ../.npm-cache --prefer-offline
+            cd ..
+            idf.py set-target esp32
+            idf.py build || {
+              status=$?
+              echo "::group::ESP-IDF build logs"
+              shopt -s nullglob
+              for log in build/log/idf_py_*; do
+                echo "----- ${log} -----"
+                cat "${log}"
+              done
+              echo "::endgroup::"
+              exit "${status}"
+            }
+
+      - name: Upload ESP-IDF build logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp-idf-build-logs
+          path: build/log/
+          if-no-files-found: ignore
+
+      - name: Package release artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          tag="${{ steps.release.outputs.tag }}"
+          artifact_root="release-artifacts"
+          bundle_dir="${artifact_root}/iot_hx711-${tag}"
+
+          mkdir -p "${bundle_dir}"
+
+          cp build/iot_hx711.bin "${artifact_root}/iot_hx711-${tag}-ota.bin"
+          cp build/iot_hx711.bin "${bundle_dir}/iot_hx711.bin"
+          cp build/bootloader/bootloader.bin "${bundle_dir}/bootloader.bin"
+          cp build/partition_table/partition-table.bin "${bundle_dir}/partition-table.bin"
+          cp build/ota_data_initial.bin "${bundle_dir}/ota_data_initial.bin"
+          cp build/flash_args "${bundle_dir}/flash_args"
+          cp build/flasher_args.json "${bundle_dir}/flasher_args.json"
+          cp build/project_description.json "${bundle_dir}/project_description.json"
+
+          (
+            cd "${bundle_dir}"
+            sha256sum * > SHA256SUMS
+          )
+
+          (
+            cd "${artifact_root}"
+            zip -r "iot_hx711-${tag}-esp32-flash-bundle.zip" "iot_hx711-${tag}"
+          )
+
+      - name: Upload GitHub Release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          tag="${{ steps.release.outputs.tag }}"
+
+          if ! gh release view "${tag}" >/dev/null 2>&1; then
+            gh release create "${tag}" \
+              --title "${tag}" \
+              --notes "Firmware build for ${tag}."
+          fi
+
+          gh release upload "${tag}" \
+            "release-artifacts/iot_hx711-${tag}-ota.bin" \
+            "release-artifacts/iot_hx711-${tag}-esp32-flash-bundle.zip" \
+            --clobber

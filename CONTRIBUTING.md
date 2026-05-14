@@ -65,6 +65,15 @@ The REST API source of truth is `api/openapi.yaml`. It is written in OpenAPI for
 - `npm run build` generates `webui/dist/api.html` and compresses it for firmware embedding.
 - The firmware serves the rendered reference at `/api.html`, and the WebUI footer links there.
 
+## Release Builds
+
+Firmware release assets are built by GitHub Actions for tags matching `vMAJOR.MINOR.PATCH`, for example `v1.0.0`.
+
+- Push a matching tag to build and create a GitHub Release if one does not exist.
+- Manually publishing a GitHub Release for a matching tag also builds and attaches the assets.
+- The OTA asset is the app image for WebUI uploads.
+- The flash bundle contains the app image, bootloader, partition table, OTA data image, ESP-IDF flash metadata, and checksums.
+
 ## Adding Configuration Sections
 
 Configuration UI sections live inside the `#configuration .config-stack` container in `webui/src/index.html`. Follow the existing section pattern:
@@ -111,5 +120,7 @@ For local simulation, update:
 - For API documentation changes, run `cd webui && npm run docs:lint`.
 - For firmware changes, run `idf.py build` from the repository root.
 - For changes that affect embedded WebUI assets, run both checks.
+- Keep `api/openapi.yaml` in sync when changing public REST API routes or payloads.
+- Edit WebUI source files under `webui/src/`, not generated files under `webui/dist/`.
 - Do not commit generated output such as ESP-IDF build directories, `managed_components/`, `node_modules/`, or `webui/dist/`.
 - Update `README.md` or this file when changing setup steps, public API routes, firmware structure, or WebUI extension patterns.

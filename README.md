@@ -82,6 +82,13 @@ idf.py -p PORT flash monitor
 
 Replace `PORT` with the serial port for the board.
 
+## Release Artifacts
+
+GitHub release firmware artifacts are created for tags that match `vMAJOR.MINOR.PATCH`, such as `v1.0.0`. Pushing such a tag or manually publishing a GitHub Release for such a tag builds the firmware and attaches:
+
+- `iot_hx711-VERSION-ota.bin`: the app image for WebUI OTA upload.
+- `iot_hx711-VERSION-esp32-flash-bundle.zip`: bootloader, partition table, OTA data image, app image, flash metadata, and checksums for first-time flashing.
+
 ## First Boot And WiFi Provisioning
 
 On boot, the firmware starts NVS, the activity LED, the HX711 sampler, WiFi, mDNS, and the HTTP/WebUI server. If the running OTA image is pending verification, it is marked valid only after the validation delay.
@@ -192,9 +199,6 @@ Mutating endpoints generally return JSON such as:
 
 OTA upload is currently unauthenticated. Keep that in mind when deciding which networks can reach the device.
 
-## Notes
+## Contributing
 
-- The project uses a custom OTA partition table from `partitions.csv`.
-- Keep `api/openapi.yaml` in sync when changing public REST API routes or payloads.
-- Edit WebUI source files under `webui/src/`, not generated files under `webui/dist/`.
-- See `CONTRIBUTING.md` before changing firmware module boundaries, HTTP routes, or WebUI configuration sections.
+Developer workflow notes are in `CONTRIBUTING.md`.
