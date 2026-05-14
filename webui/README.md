@@ -13,7 +13,7 @@ npm run dev
 
 The dev server serves the WebUI and mocks configured REST endpoints from `mock-api.config.json`.
 Fixture-backed GET requests read JSON from matching files under `mock/`.
-For example, `GET /api/info` returns `mock/api/info.json`.
+For example, `GET /info` returns `mock/info.json`.
 
 All other configured REST requests are logged by the local server and return a small mocked success response when configured.
 The same mock middleware is active for `npm run preview`.

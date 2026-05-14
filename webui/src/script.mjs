@@ -148,7 +148,7 @@ function renderPartitions(payload) {
 }
 
 async function refreshInfo() {
-  const response = await fetch("/api/info", { cache: "no-store" });
+  const response = await fetch("/info", { cache: "no-store" });
   if (!response.ok) {
     throw new Error("Unable to load device information");
   }
@@ -156,7 +156,7 @@ async function refreshInfo() {
 }
 
 async function refreshPartitions() {
-  const response = await fetch("/api/partitions", { cache: "no-store" });
+  const response = await fetch("/partitions", { cache: "no-store" });
   if (!response.ok) {
     throw new Error("Unable to load partition table");
   }
@@ -239,7 +239,7 @@ function setupWifiForm() {
     };
 
     message.textContent = "Saving credentials...";
-    const response = await fetch("/api/wifi", {
+    const response = await fetch("/wifi", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -263,7 +263,7 @@ function setupWifiForm() {
     }
 
     forgetMessage.textContent = "Forgetting credentials...";
-    const response = await fetch("/api/wifi/forget", {
+    const response = await fetch("/wifi/forget", {
       method: "POST",
     });
 

@@ -333,3 +333,35 @@ GET mock endpoints return fixture JSON
 POST REST flows are logged by the local server
 webui/dist contains index.html.gz, assets/index.js.gz, and assets/index.css.gz
 firmware build embeds the gzipped WebUI assets
+
+## Iteration 7
+
+Root-Level API Path Refactor
+Summary
+Remove the /api prefix from firmware and WebUI API routes while keeping OTA upload at /update.
+
+Key Changes
+Firmware routes:
+change GET /api/info to GET /info
+change GET and POST /api/wifi to GET and POST /wifi
+change POST /api/wifi/forget to POST /wifi/forget
+change GET /api/partitions to GET /partitions
+keep GET /sample unchanged
+keep POST /update unchanged
+do not keep /api compatibility aliases
+
+WebUI and local simulation:
+update WebUI fetch calls to the new root-level paths
+update Vite mock API config to recognize /info, /wifi, /wifi/forget, /partitions, /sample, and /update
+move mock fixtures to matching root-level JSON paths under webui/mock
+keep request and response JSON schemas unchanged
+
+Test Plan For Human Developer
+Codex must not run tests, builds, compile checks, or automatic dependency installs.
+Human developer should verify:
+local Vite server returns fixture JSON for /info, /wifi, /partitions, and /sample
+local WiFi save posts to /wifi
+local Forget WiFi posts to /wifi/forget
+local OTA upload still posts to /update
+on-device WebUI populates all tabs through the new paths
+old /api routes no longer work

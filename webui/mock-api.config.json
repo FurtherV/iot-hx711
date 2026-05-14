@@ -1,22 +1,24 @@
 {
   "fixtureRoutes": [
-    "/api/info",
-    "/api/wifi",
-    "/api/partitions",
+    "/info",
+    "/wifi",
+    "/partitions",
     "/sample"
   ],
   "restPrefixes": [
-    "/api/",
+    "/info",
+    "/wifi",
+    "/partitions",
     "/sample",
     "/update"
   ],
   "successResponses": {
-    "/api/wifi": {
+    "/wifi": {
       "ok": true,
       "restarting": true,
       "mocked": true
     },
-    "/api/wifi/forget": {
+    "/wifi/forget": {
       "ok": true,
       "restarting": true,
       "mocked": true
