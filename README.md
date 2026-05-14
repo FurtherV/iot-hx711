@@ -202,3 +202,11 @@ OTA upload is currently unauthenticated. Keep that in mind when deciding which n
 ## Contributing
 
 Developer workflow notes are in `CONTRIBUTING.md`.
+
+## License
+
+Project code is licensed under the GNU General Public License v3.0 or later.
+
+Copyright (C) 2026 FurtherV
+
+Third-party dependencies keep their own licenses.

@@ -130,6 +130,10 @@ Added an OpenAPI YAML contract for the root-level REST API, integrated Redocly C
 
 Added a GitHub Actions release workflow that builds firmware for strict semver tags matching `vMAJOR.MINOR.PATCH` and for manually published GitHub Releases with matching tags. The workflow uses Espressif's ESP-IDF v6.0.1 Docker container, installs Node.js 24 inside the container, runs `npm ci` and `idf.py build`, then publishes an OTA app binary plus a flash bundle containing bootloader, partition table, OTA data image, app image, flash metadata, and checksums. Updated README/CONTRIBUTING so release triggering and artifact meanings are human-facing while developer maintenance notes stay in CONTRIBUTING.
 
+## Iteration 14 - Project Licensing
+
+Licensed the project as GPL-3.0-or-later by adding a root LICENSE file, README license section, OpenAPI license metadata, and WebUI package license metadata. Removed the inherited Espressif CC0 header from `main/main.c` so project-level licensing is no longer contradicted by the old hello-world template header.
+
 # Test Policy
 
 Codex must not run ESP-IDF tests, builds, compile checks, flashes, or automatic ESP-IDF dependency installs. Human developer should run ESP-IDF verification. Frontend-only checks such as `npm run build` may be run when WebUI files are changed and dependencies are already installed.

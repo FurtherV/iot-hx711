@@ -3,8 +3,8 @@ info:
   title: iot_hx711 REST API
   version: 0.1.0
   license:
-    name: Not specified
-    identifier: LicenseRef-NotSpecified
+    name: GNU General Public License v3.0 or later
+    identifier: GPL-3.0-or-later
   description: |
     HTTP API for the iot_hx711 ESP32 firmware.
 
