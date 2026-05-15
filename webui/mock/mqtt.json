@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "configured": true,
+  "connected": true,
+  "brokerUri": "mqtt://broker.local:1883",
+  "topic": "iot_hx711/iot-ABCDEF/sample",
+  "status": "connected",
+  "lastError": "",
+  "availableBrokerUris": [
+    "mqtt://broker.local:1883",
+    "mqtt://workshop-broker.local:1883"
+  ]
+}

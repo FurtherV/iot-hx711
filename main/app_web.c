@@ -1,10 +1,13 @@
 #include "app_web.h"
 
 #include <inttypes.h>
+#include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "app_activity_led.h"
+#include "app_mqtt.h"
 #include "app_sample.h"
 #include "app_wifi.h"
 #include "esp_app_desc.h"
@@ -69,6 +72,40 @@ static esp_err_t style_get_handler(httpd_req_t *req)
 static const char *bool_text(bool value)
 {
     return value ? "true" : "false";
+}
+
+typedef struct {
+    char *data;
+    size_t len;
+    size_t cap;
+} json_buffer_t;
+
+static bool json_append(json_buffer_t *buffer, const char *text)
+{
+    size_t text_len = strlen(text);
+    if (text_len >= buffer->cap - buffer->len) {
+        return false;
+    }
+
+    memcpy(buffer->data + buffer->len, text, text_len);
+    buffer->len += text_len;
+    buffer->data[buffer->len] = '\0';
+    return true;
+}
+
+static bool json_appendf(json_buffer_t *buffer, const char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    int len = vsnprintf(buffer->data + buffer->len, buffer->cap - buffer->len, format, args);
+    va_end(args);
+
+    if (len < 0 || len >= (int)(buffer->cap - buffer->len)) {
+        return false;
+    }
+
+    buffer->len += (size_t)len;
+    return true;
 }
 
 static bool json_escape_string(const char *input, char *output, size_t output_len)
@@ -336,6 +373,84 @@ static esp_err_t sample_get_handler(httpd_req_t *req)
     return httpd_resp_sendstr(req, json);
 }
 
+static esp_err_t mqtt_get_handler(httpd_req_t *req)
+{
+    app_activity_led_pulse();
+
+    app_mqtt_status_t mqtt;
+    app_mqtt_get_status(&mqtt);
+
+    char (*broker_uris)[APP_MQTT_URI_MAX_LEN + 1] = calloc(APP_MQTT_DISCOVERY_RESULT_MAX, APP_MQTT_URI_MAX_LEN + 1);
+    if (broker_uris == NULL) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "MQTT response unavailable");
+        return ESP_FAIL;
+    }
+
+    size_t broker_uri_count = 0;
+    esp_err_t discovery_err = app_mqtt_get_discovered_brokers(broker_uris, APP_MQTT_DISCOVERY_RESULT_MAX, &broker_uri_count);
+    if (discovery_err != ESP_OK) {
+        ESP_LOGW(TAG, "MQTT broker discovery read failed: %s", esp_err_to_name(discovery_err));
+    }
+
+    size_t response_cap = 512 +
+                          ((APP_MQTT_URI_MAX_LEN * 6) + 3) * (APP_MQTT_DISCOVERY_RESULT_MAX + 1) +
+                          (APP_MQTT_TOPIC_MAX_LEN * 6) +
+                          (APP_MQTT_STATUS_MAX_LEN * 6) +
+                          (APP_MQTT_ERROR_MAX_LEN * 6);
+    char *json = calloc(1, response_cap);
+    if (json == NULL) {
+        free(broker_uris);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "MQTT response unavailable");
+        return ESP_FAIL;
+    }
+
+    json_buffer_t response = {
+        .data = json,
+        .len = 0,
+        .cap = response_cap,
+    };
+    char escaped[(APP_MQTT_URI_MAX_LEN * 6) + 1];
+    bool ok = json_appendf(&response,
+                           "{\"enabled\":%s,\"configured\":%s,\"connected\":%s,\"brokerUri\":\"",
+                           bool_text(mqtt.enabled),
+                           bool_text(mqtt.configured),
+                           bool_text(mqtt.connected)) &&
+              json_escape_string(mqtt.broker_uri, escaped, sizeof(escaped)) &&
+              json_append(&response, escaped) &&
+              json_append(&response, "\",\"topic\":\"") &&
+              json_escape_string(mqtt.topic, escaped, sizeof(escaped)) &&
+              json_append(&response, escaped) &&
+              json_append(&response, "\",\"status\":\"") &&
+              json_escape_string(mqtt.status, escaped, sizeof(escaped)) &&
+              json_append(&response, escaped) &&
+              json_append(&response, "\",\"lastError\":\"") &&
+              json_escape_string(mqtt.last_error, escaped, sizeof(escaped)) &&
+              json_append(&response, escaped) &&
+              json_append(&response, "\",\"availableBrokerUris\":[");
+
+    for (size_t i = 0; i < broker_uri_count; i++) {
+        if (!ok) {
+            break;
+        }
+        ok = json_escape_string(broker_uris[i], escaped, sizeof(escaped)) &&
+             json_appendf(&response, "%s\"%s\"", i == 0 ? "" : ",", escaped);
+    }
+
+    free(broker_uris);
+    ok = ok && json_append(&response, "]}");
+    if (!ok) {
+        free(json);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "MQTT response too large");
+        return ESP_FAIL;
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+    esp_err_t err = httpd_resp_sendstr(req, json);
+    free(json);
+    return err;
+}
+
 static esp_err_t partitions_get_handler(httpd_req_t *req)
 {
     app_activity_led_pulse();
@@ -502,6 +617,38 @@ static bool extract_json_u32(const char *json, const char *key, uint32_t *out)
 
     *out = value;
     return true;
+}
+
+static bool extract_json_bool(const char *json, const char *key, bool *out)
+{
+    char pattern[32];
+    snprintf(pattern, sizeof(pattern), "\"%s\"", key);
+
+    const char *cursor = strstr(json, pattern);
+    if (cursor == NULL) {
+        return false;
+    }
+
+    cursor = strchr(cursor + strlen(pattern), ':');
+    if (cursor == NULL) {
+        return false;
+    }
+
+    cursor++;
+    while (*cursor == ' ' || *cursor == '\t') {
+        cursor++;
+    }
+
+    if (strncmp(cursor, "true", strlen("true")) == 0) {
+        *out = true;
+        return true;
+    }
+    if (strncmp(cursor, "false", strlen("false")) == 0) {
+        *out = false;
+        return true;
+    }
+
+    return false;
 }
 
 static void restart_task(void *arg)
@@ -676,6 +823,58 @@ static esp_err_t config_sample_post_handler(httpd_req_t *req)
     return httpd_resp_sendstr(req, "{\"ok\":true,\"restarting\":true}");
 }
 
+static esp_err_t mqtt_post_handler(httpd_req_t *req)
+{
+    app_activity_led_pulse();
+
+    if (req->content_len <= 0 || req->content_len >= APP_POST_BODY_MAX_LEN) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid request body");
+        return ESP_FAIL;
+    }
+
+    char body[APP_POST_BODY_MAX_LEN] = {0};
+    int received = 0;
+    while (received < req->content_len) {
+        int ret = httpd_req_recv(req, body + received, req->content_len - received);
+        if (ret <= 0) {
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to read body");
+            return ESP_FAIL;
+        }
+        received += ret;
+        app_activity_led_pulse();
+    }
+
+    bool enabled = false;
+    char broker_uri[APP_MQTT_URI_MAX_LEN + 1] = {0};
+    char topic[APP_MQTT_TOPIC_MAX_LEN + 1] = {0};
+    if (!extract_json_bool(body, "enabled", &enabled) ||
+        !extract_json_string(body, "brokerUri", broker_uri, sizeof(broker_uri)) ||
+        !extract_json_string(body, "topic", topic, sizeof(topic))) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Expected enabled, brokerUri, and topic");
+        return ESP_FAIL;
+    }
+
+    esp_err_t err = app_mqtt_save_config(enabled, broker_uri, topic);
+    if (err == ESP_ERR_INVALID_ARG || err == ESP_ERR_INVALID_SIZE) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid MQTT configuration");
+        return ESP_FAIL;
+    }
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to store MQTT configuration: %s", esp_err_to_name(err));
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to store MQTT configuration");
+        return ESP_FAIL;
+    }
+
+    err = schedule_delayed_task(restart_task, "restart_task", 2048);
+    if (err != ESP_OK) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to schedule restart");
+        return ESP_FAIL;
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    return httpd_resp_sendstr(req, "{\"ok\":true,\"restarting\":true}");
+}
+
 static esp_err_t update_post_handler(httpd_req_t *req)
 {
     app_activity_led_pulse();
@@ -749,7 +948,7 @@ static esp_err_t update_post_handler(httpd_req_t *req)
 esp_err_t app_web_start(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.max_uri_handlers = 15;
+    config.max_uri_handlers = 17;
     config.uri_match_fn = httpd_uri_match_wildcard;
 
     httpd_handle_t server = NULL;
@@ -770,6 +969,8 @@ esp_err_t app_web_start(void)
         {.uri = "/partitions", .method = HTTP_GET, .handler = partitions_get_handler},
         {.uri = "/config", .method = HTTP_GET, .handler = config_get_handler},
         {.uri = "/config/sample", .method = HTTP_POST, .handler = config_sample_post_handler},
+        {.uri = "/mqtt", .method = HTTP_GET, .handler = mqtt_get_handler},
+        {.uri = "/mqtt", .method = HTTP_POST, .handler = mqtt_post_handler},
         {.uri = "/sample", .method = HTTP_GET, .handler = sample_get_handler},
         {.uri = "/update", .method = HTTP_POST, .handler = update_post_handler},
         {.uri = "/reboot", .method = HTTP_POST, .handler = reboot_post_handler},

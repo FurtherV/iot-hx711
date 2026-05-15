@@ -123,6 +123,38 @@
                 </form>
               </section>
 
+              <section class="config-section" data-config-section="mqtt">
+                <div class="section-heading">
+                  <div>
+                    <h2>MQTT</h2>
+                    <p class="message hidden" id="mqttStatusText"></p>
+                  </div>
+                </div>
+
+                <form id="mqttForm" class="form config-form">
+                  <label>
+                    <span>Activity</span>
+                    <select id="mqttEnabled" name="mqttEnabled">
+                      <option value="false">Disabled</option>
+                      <option value="true">Enabled</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Broker URI</span>
+                    <input id="mqttBrokerUri" name="mqttBrokerUri" type="text" maxlength="128" autocomplete="off" autocapitalize="none" spellcheck="false" list="mqttBrokerOptions" placeholder="mqtt://broker.local:1883">
+                    <datalist id="mqttBrokerOptions"></datalist>
+                  </label>
+                  <label>
+                    <span>Topic</span>
+                    <input id="mqttTopic" name="mqttTopic" type="text" maxlength="128" autocomplete="off" autocapitalize="none" spellcheck="false" required>
+                  </label>
+                  <div class="form-actions">
+                    <button class="primary" type="submit">Save and Restart</button>
+                    <p class="message hidden" id="mqttMessage"></p>
+                  </div>
+                </form>
+              </section>
+
               <section class="config-section" data-config-section="sampling">
                 <div class="section-heading">
                   <div>

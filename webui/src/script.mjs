@@ -13,6 +13,8 @@ const state = {
     sampleIntervalMaxMs: 10000,
   },
   info: null,
+  mqtt: null,
+  mqttPollTimer: null,
   partitions: [],
   sample: null,
   samplePollTimer: null,
@@ -95,6 +97,34 @@ function renderWifi(wifi) {
   setText("#wifiStatusText", "");
 }
 
+function mqttStatusLabel(mqtt) {
+  if (!mqtt) {
+    return "Unknown";
+  }
+  if (!mqtt.enabled) {
+    return "Disabled";
+  }
+  if (mqtt.connected) {
+    return "Connected";
+  }
+  if (mqtt.status === "not_configured") {
+    return "Not configured";
+  }
+  if (mqtt.status === "error") {
+    return `Error${mqtt.lastError ? `: ${mqtt.lastError}` : ""}`;
+  }
+  return mqtt.status || "Disconnected";
+}
+
+function renderMqtt(mqtt) {
+  state.mqtt = mqtt;
+  $("#mqttEnabled").value = mqtt.enabled ? "true" : "false";
+  $("#mqttBrokerUri").value = mqtt.brokerUri || "";
+  $("#mqttTopic").value = mqtt.topic || "";
+  renderMqttBrokerOptions(mqtt.availableBrokerUris || []);
+  setText("#mqttStatusText", `Status: ${mqttStatusLabel(mqtt)}`);
+}
+
 function renderSsidOptions(ssids) {
   const options = $("#ssidOptions");
   options.innerHTML = "";
@@ -108,6 +138,23 @@ function renderSsidOptions(ssids) {
     seen.add(ssid);
     const option = document.createElement("option");
     option.value = ssid;
+    options.append(option);
+  }
+}
+
+function renderMqttBrokerOptions(brokerUris) {
+  const options = $("#mqttBrokerOptions");
+  options.innerHTML = "";
+
+  const seen = new Set();
+  for (const brokerUri of brokerUris) {
+    if (typeof brokerUri !== "string" || brokerUri === "" || seen.has(brokerUri)) {
+      continue;
+    }
+
+    seen.add(brokerUri);
+    const option = document.createElement("option");
+    option.value = brokerUri;
     options.append(option);
   }
 }
@@ -304,6 +351,10 @@ async function refreshWifi() {
   renderWifi(await readJson("/wifi", "Unable to load WiFi settings"));
 }
 
+async function refreshMqtt() {
+  renderMqtt(await readJson("/mqtt", "Unable to load MQTT settings"));
+}
+
 async function refreshConfig() {
   renderConfig(await readJson("/config", "Unable to load configuration"));
 }
@@ -314,6 +365,22 @@ async function refreshPartitions() {
 
 async function refreshSample() {
   renderSample(await readJson("/sample", "Sample unavailable"));
+}
+
+function setupMqttPolling() {
+  const poll = async () => {
+    try {
+      await refreshMqtt();
+    } catch (error) {
+      setText("#mqttStatusText", error.message);
+    }
+  };
+
+  poll();
+  if (state.mqttPollTimer !== null) {
+    clearInterval(state.mqttPollTimer);
+  }
+  state.mqttPollTimer = setInterval(poll, 5000);
 }
 
 function setupSamplePolling() {
@@ -496,6 +563,35 @@ function setupWifiForm() {
   });
 }
 
+function setupMqttForm() {
+  $("#mqttForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const enabled = $("#mqttEnabled").value === "true";
+    const brokerUri = $("#mqttBrokerUri").value.trim();
+    const topic = $("#mqttTopic").value.trim();
+
+    if (enabled && !brokerUri.startsWith("mqtt://")) {
+      setText("#mqttMessage", "Enter an mqtt:// broker URI.");
+      return;
+    }
+    if (enabled && topic === "") {
+      setText("#mqttMessage", "Enter an MQTT topic.");
+      return;
+    }
+
+    setText("#mqttMessage", "Saving MQTT configuration...");
+    try {
+      await postJson("/mqtt", "Failed to save MQTT configuration", { enabled, brokerUri, topic });
+      setText("#mqttMessage", "MQTT configuration saved. Device is restarting.");
+      showAlert("MQTT", "MQTT configuration saved. The device is restarting.");
+    } catch (error) {
+      setText("#mqttMessage", error.message);
+      showAlert("MQTT Failed", error.message);
+    }
+  });
+}
+
 function setupSampleConfigForm() {
   $("#sampleConfigForm").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -561,6 +657,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   setupSamplePlot();
   setupFirmwareUpload();
   setupWifiForm();
+  setupMqttForm();
   setupSampleConfigForm();
   setupDeviceActions();
   renderConfig(state.config);
@@ -572,6 +669,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   }
 
   setupSamplePolling();
+  setupMqttPolling();
 
   try {
     await refreshInfo();

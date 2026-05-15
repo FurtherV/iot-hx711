@@ -16,3 +16,4 @@ dependencies:
   #   public: true
   esp-idf-lib/hx711: '*'
   espressif/mdns: '*'
+  espressif/mqtt: '*'

@@ -36,7 +36,7 @@ When project facts change:
 
 # Current Project State
 
-This is an ESP-IDF HX711 scale node with WiFi provisioning, mDNS discovery, a gzipped Vite WebUI, root-level HTTP API routes, Redocly-generated OpenAPI documentation, OTA updates with rollback support, and a configurable sampling loop.
+This is an ESP-IDF HX711 scale node with WiFi provisioning, mDNS discovery, MQTT sample publishing, a gzipped Vite WebUI, root-level HTTP API routes, Redocly-generated OpenAPI documentation, OTA updates with rollback support, and a configurable sampling loop.
 
 ## Firmware Structure
 
@@ -45,6 +45,7 @@ This is an ESP-IDF HX711 scale node with WiFi provisioning, mDNS discovery, a gz
 - `main/app_web.*` owns the HTTP server, static gzipped WebUI assets, root-level API routes, OTA upload, partition reporting, and restart actions.
 - `main/app_sample.*` owns HX711 setup, calibrated sample caching, and sample interval persistence.
 - `main/app_mdns.*` advertises the device as `iot-XXXXXX.local`.
+- `main/app_mqtt.*` owns MQTT config, DNS-SD broker discovery, MQTT connection state, and sample publishing.
 - `main/app_activity_led.*` pulses the active-low status LED on web activity.
 - `main/Kconfig.projbuild` owns project options such as SoftAP password, HX711 pins, and status LED pin.
 
@@ -69,6 +70,8 @@ This is an ESP-IDF HX711 scale node with WiFi provisioning, mDNS discovery, a gz
 - `GET /partitions`
 - `GET /config`
 - `POST /config/sample`
+- `GET /mqtt`
+- `POST /mqtt`
 - `GET /sample`
 - `POST /update`
 - `POST /reboot`
@@ -137,6 +140,10 @@ Licensed the project as GPL-3.0-or-later by adding a root LICENSE file, README l
 ## Iteration 15 - Firmware Reliability And Metadata
 
 Fixed firmware reliability issues around JSON escaping, WiFi status synchronization, cached WiFi scans, HTTP server startup cleanup, and restart task scheduling failures. Tightened the ESP-IDF manifest requirement to the current supported v6.0 line, updated the matching dependency lock metadata and README prerequisite, and documented reboot/config-reset server errors in the OpenAPI contract.
+
+## Iteration 16 - MQTT Client Publishing
+
+Added MQTT client support using the ESP-MQTT component, with NVS-backed enable/disable state, broker URI, and topic configuration. Added DNS-SD discovery for `_mqtt._tcp` brokers, root-level `/mqtt` status/config routes, a Configuration-screen MQTT form with broker URI datalist suggestions, OpenAPI/mock updates, and sample publishing at the configured HX711 sample interval using the same JSON payload as `GET /sample`. Fixed the `/mqtt` status response so empty MQTT string fields cannot terminate chunked JSON early and break WebUI parsing. Added local Mosquitto helper scripts under `test/` that start a LAN-listening development broker, publish DNS-SD `_mqtt._tcp` discovery data, and provide simple publish/subscribe commands for MQTT verification.
 
 # Test Policy
 

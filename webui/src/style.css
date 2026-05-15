@@ -29,7 +29,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -330,7 +331,8 @@ label span {
 }
 
 input[type="text"],
-input[type="password"] {
+input[type="password"],
+select {
   width: 100%;
   min-height: 44px;
   padding: 10px 12px;
@@ -340,7 +342,8 @@ input[type="password"] {
   color: var(--text);
 }
 
-input:focus {
+input:focus,
+select:focus {
   border-color: var(--accent);
   outline: 3px solid var(--accent-soft);
 }

@@ -12,6 +12,7 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "hx711.h"
+#include "app_mqtt.h"
 #include "nvs.h"
 #include "sdkconfig.h"
 
@@ -183,6 +184,10 @@ static void sample_task(void *arg)
         if (err == ESP_OK) {
             s_sequence_number++;
             cache_sample_json(value);
+            char json[APP_SAMPLE_JSON_MAX_LEN];
+            if (app_sample_get_json(json, sizeof(json)) == ESP_OK) {
+                app_mqtt_publish_sample_json(json);
+            }
         } else {
             ESP_LOGW(TAG, "HX711 sample read failed: %s", esp_err_to_name(err));
         }

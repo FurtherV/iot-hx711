@@ -1,4 +1,4 @@
-idf_component_register(SRCS "main.c" "app_wifi.c" "app_web.c" "app_mdns.c" "app_activity_led.c" "app_sample.c"
+idf_component_register(SRCS "main.c" "app_wifi.c" "app_web.c" "app_mdns.c" "app_mqtt.c" "app_activity_led.c" "app_sample.c"
                        PRIV_REQUIRES
                             app_update
                             driver
@@ -10,6 +10,7 @@ idf_component_register(SRCS "main.c" "app_wifi.c" "app_web.c" "app_mdns.c" "app_
                             esp_wifi
                             esp-idf-lib__hx711
                             mdns
+                            mqtt
                             nvs_flash
                             spi_flash
                        INCLUDE_DIRS "")

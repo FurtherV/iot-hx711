@@ -4,6 +4,7 @@
     "/wifi",
     "/partitions",
     "/sample",
+    "/mqtt",
     "/config"
   ],
   "restPrefixes": [
@@ -11,6 +12,7 @@
     "/wifi",
     "/partitions",
     "/sample",
+    "/mqtt",
     "/update",
     "/reboot",
     "/config"
@@ -27,6 +29,11 @@
       "mocked": true
     },
     "/update": {
+      "ok": true,
+      "restarting": true,
+      "mocked": true
+    },
+    "/mqtt": {
       "ok": true,
       "restarting": true,
       "mocked": true

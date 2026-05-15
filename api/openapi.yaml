@@ -21,6 +21,8 @@ tags:
     description: WiFi status and credential configuration operations.
   - name: Sampling
     description: HX711 sample data and sampling configuration operations.
+  - name: MQTT
+    description: MQTT client status and configuration operations.
   - name: Update
     description: Firmware update operations.
 paths:
@@ -145,6 +147,45 @@ paths:
       responses:
         "200":
           description: Sample interval was saved and the device is restarting.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestartResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/ServerError"
+  /mqtt:
+    get:
+      tags:
+        - MQTT
+      operationId: getMqtt
+      summary: Get MQTT configuration, connection status, and discovered brokers.
+      responses:
+        "200":
+          description: MQTT status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MqttStatus"
+        "4XX":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    post:
+      tags:
+        - MQTT
+      operationId: saveMqtt
+      summary: Save MQTT configuration and restart.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MqttConfigRequest"
+      responses:
+        "200":
+          description: MQTT configuration was saved and the device is restarting.
           content:
             application/json:
               schema:
@@ -402,6 +443,58 @@ components:
           minimum: 100
           maximum: 10000
           example: 1000
+    MqttStatus:
+      allOf:
+        - $ref: "#/components/schemas/MqttConfigRequest"
+        - type: object
+          required:
+            - configured
+            - connected
+            - status
+            - lastError
+            - availableBrokerUris
+          properties:
+            configured:
+              type: boolean
+            connected:
+              type: boolean
+            status:
+              type: string
+              enum:
+                - disabled
+                - not_configured
+                - connecting
+                - connected
+                - disconnected
+                - error
+            lastError:
+              type: string
+              maxLength: 80
+            availableBrokerUris:
+              type: array
+              maxItems: 16
+              items:
+                type: string
+                maxLength: 128
+                pattern: "^mqtt://"
+    MqttConfigRequest:
+      type: object
+      required:
+        - enabled
+        - brokerUri
+        - topic
+      properties:
+        enabled:
+          type: boolean
+        brokerUri:
+          type: string
+          maxLength: 128
+          pattern: "^mqtt://"
+          example: mqtt://broker.local:1883
+        topic:
+          type: string
+          maxLength: 128
+          example: iot_hx711/iot-ABCDEF/sample
     Sample:
       type: object
       required:

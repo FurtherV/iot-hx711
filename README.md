@@ -10,6 +10,7 @@
 - Embedded WebUI built with Vite and served as compressed static assets.
 - Local WebUI simulator with fixture-backed API responses.
 - OpenAPI REST API reference generated with Redocly and embedded at `/api.html`.
+- MQTT sample publishing with broker URI/topic configuration and DNS-SD broker suggestions.
 - OTA firmware upload through the WebUI or `POST /update`.
 - OTA rollback support with a validation delay after boot.
 - mDNS advertisement for local network discovery.
@@ -39,6 +40,7 @@ Firmware dependencies are declared in `main/idf_component.yml` and are resolved 
 
 - `esp-idf-lib/hx711`
 - `espressif/mdns`
+- `espressif/mqtt`
 
 Install WebUI dependencies once before the first firmware build:
 
@@ -57,6 +59,7 @@ The ESP-IDF build runs the WebUI build automatically, so missing `webui/node_mod
 - `main/app_web.*`: HTTP server, REST routes, embedded WebUI assets, OTA upload.
 - `main/app_sample.*`: HX711 sampling, calibration, sample JSON, sample interval storage.
 - `main/app_mdns.*`: mDNS hostname and HTTP service advertisement.
+- `main/app_mqtt.*`: MQTT configuration, broker discovery, connection status, and sample publishing.
 - `main/app_activity_led.*`: activity LED handling.
 - `webui/`: Vite WebUI project.
 - `webui/src/`: WebUI HTML, JavaScript, CSS, and logo source.
@@ -91,7 +94,7 @@ GitHub release firmware artifacts are created for tags that match `vMAJOR.MINOR.
 
 ## First Boot And WiFi Provisioning
 
-On boot, the firmware starts NVS, the activity LED, the HX711 sampler, WiFi, mDNS, and the HTTP/WebUI server. If the running OTA image is pending verification, it is marked valid only after the validation delay.
+On boot, the firmware starts NVS, the activity LED, the HX711 sampler, WiFi, mDNS, MQTT, and the HTTP/WebUI server. If the running OTA image is pending verification, it is marked valid only after the validation delay.
 
 WiFi behavior:
 
@@ -113,7 +116,7 @@ Main screens:
 - Home: live sample plot.
 - Information: device information and partition table.
 - Update: firmware binary upload.
-- Configuration: WiFi credentials, scanned SSID suggestions, sample interval, reset and reboot actions.
+- Configuration: WiFi credentials, scanned SSID suggestions, MQTT broker/topic settings with DNS-SD broker suggestions, sample interval, reset and reboot actions.
 
 Local development:
 
@@ -148,6 +151,8 @@ The firmware uses root-level API paths, not `/api/...` paths.
 - `GET /partitions`: runtime partition table and OTA roles.
 - `GET /config`: current configurable values.
 - `POST /config/sample`: save sample interval and restart.
+- `GET /mqtt`: MQTT configuration, connection status, and discovered broker URI suggestions.
+- `POST /mqtt`: save MQTT configuration and restart.
 - `GET /sample`: latest cached HX711 sample.
 - `POST /update`: raw firmware binary OTA upload.
 - `POST /reboot`: restart the device.
@@ -188,6 +193,21 @@ Example `GET /wifi` response:
   "ip": "192.168.1.91",
   "apSsid": "",
   "availableSsids": ["lab-wifi", "workshop", "guest"]
+}
+```
+
+Example `GET /mqtt` response:
+
+```json
+{
+  "enabled": true,
+  "configured": true,
+  "connected": true,
+  "brokerUri": "mqtt://broker.local:1883",
+  "topic": "iot_hx711/iot-ABCDEF/sample",
+  "status": "connected",
+  "lastError": "",
+  "availableBrokerUris": ["mqtt://broker.local:1883"]
 }
 ```
 

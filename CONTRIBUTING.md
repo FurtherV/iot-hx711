@@ -13,8 +13,9 @@ Startup currently initializes services in this order:
 3. HX711 sample service
 4. WiFi
 5. mDNS
-6. HTTP/WebUI server
-7. OTA rollback validation guard
+6. MQTT
+7. HTTP/WebUI server
+8. OTA rollback validation guard
 
 Main firmware modules:
 
@@ -22,9 +23,10 @@ Main firmware modules:
 - `app_web`: HTTP routes, JSON APIs, compressed WebUI assets, OTA upload.
 - `app_sample`: HX711 sampling, calibration, cached `/sample` JSON, sample interval config.
 - `app_mdns`: local hostname and HTTP service advertisement.
+- `app_mqtt`: MQTT broker configuration, DNS-SD broker discovery, connection status, and sample publishing.
 - `app_activity_led`: active-low web activity LED pulses.
 
-Public HTTP API routes are root-level paths such as `/wifi`, `/info`, `/sample`, `/partitions`, `/config`, `/update`, `/reboot`, and `/config/reset`. Do not add new `/api/...` routes.
+Public HTTP API routes are root-level paths such as `/wifi`, `/mqtt`, `/info`, `/sample`, `/partitions`, `/config`, `/update`, `/reboot`, and `/config/reset`. Do not add new `/api/...` routes.
 
 New firmware dependencies should be discussed before they are added or vendored. Current dependencies are declared in `main/idf_component.yml`.
 
