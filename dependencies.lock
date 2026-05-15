@@ -57,6 +57,6 @@ direct_dependencies:
 - esp-idf-lib/hx711
 - espressif/mdns
 - idf
-manifest_hash: 393857dcc2d83e8b9230f2047316fbb50d92fba65dfa8dcb78d44644060c62f5
+manifest_hash: d9feb3ecd0f90882cc68e80f3e4e1fb1cfc6b3e960676d3eeafbd0c6e10497bb
 target: esp32
 version: 3.0.0

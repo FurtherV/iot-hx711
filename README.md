@@ -31,7 +31,7 @@ The default calibration is compiled into the sampler:
 
 ## Prerequisites
 
-- ESP-IDF with Component Manager support. The component manifest currently declares `idf >=4.1.0`.
+- ESP-IDF with Component Manager support. The component manifest currently declares `idf >=6.0.1,<7.0.0`.
 - Node.js compatible with Vite 5, meaning Node.js `18.x` or `20.x` and newer, plus npm `8` or newer.
 - A serial connection to the ESP32 board for flashing and monitoring.
 

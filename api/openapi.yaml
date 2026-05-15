@@ -210,6 +210,8 @@ paths:
                 $ref: "#/components/schemas/RestartResponse"
         "4XX":
           $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/ServerError"
   /config/reset:
     post:
       tags:
@@ -225,6 +227,8 @@ paths:
                 $ref: "#/components/schemas/ConfigResetResponse"
         "4XX":
           $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/ServerError"
 components:
   responses:
     BadRequest:

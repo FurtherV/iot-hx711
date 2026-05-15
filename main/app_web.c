@@ -188,7 +188,17 @@ static esp_err_t info_get_handler(httpd_req_t *req)
     const esp_partition_t *running = esp_ota_get_running_partition();
     const esp_app_desc_t *app = esp_app_get_description();
 
-    char json[768];
+    char ssid[(APP_WIFI_SSID_MAX_LEN * 6) + 1];
+    char ip[(APP_WIFI_IP_MAX_LEN * 6) + 1];
+    char ap_ssid[(APP_WIFI_SSID_MAX_LEN * 6) + 1];
+    if (!json_escape_string(wifi.ssid, ssid, sizeof(ssid)) ||
+        !json_escape_string(wifi.ip, ip, sizeof(ip)) ||
+        !json_escape_string(wifi.ap_ssid, ap_ssid, sizeof(ap_ssid))) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Info response too large");
+        return ESP_FAIL;
+    }
+
+    char json[1024];
     int len = snprintf(json, sizeof(json),
                        "{"
                        "\"appName\":\"iot_hx711\","
@@ -216,9 +226,9 @@ static esp_err_t info_get_handler(httpd_req_t *req)
                        bool_text(wifi.has_credentials),
                        bool_text(wifi.connected),
                        bool_text(wifi.softap_active),
-                       wifi.ssid,
-                       wifi.ip,
-                       wifi.ap_ssid);
+                       ssid,
+                       ip,
+                       ap_ssid);
 
     if (len < 0 || len >= (int)sizeof(json)) {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Info response too large");
@@ -511,6 +521,17 @@ static void reset_config_task(void *arg)
     esp_restart();
 }
 
+static esp_err_t schedule_delayed_task(TaskFunction_t task, const char *name, uint32_t stack_size)
+{
+    BaseType_t created = xTaskCreate(task, name, stack_size, NULL, 5, NULL);
+    if (created != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create %s task", name);
+        return ESP_ERR_NO_MEM;
+    }
+
+    return ESP_OK;
+}
+
 static esp_err_t wifi_post_handler(httpd_req_t *req)
 {
     app_activity_led_pulse();
@@ -548,10 +569,14 @@ static esp_err_t wifi_post_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
+    err = schedule_delayed_task(restart_task, "restart_task", 2048);
+    if (err != ESP_OK) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to schedule restart");
+        return ESP_FAIL;
+    }
+
     httpd_resp_set_type(req, "application/json");
-    httpd_resp_sendstr(req, "{\"ok\":true,\"restarting\":true}");
-    xTaskCreate(restart_task, "restart_task", 2048, NULL, 5, NULL);
-    return ESP_OK;
+    return httpd_resp_sendstr(req, "{\"ok\":true,\"restarting\":true}");
 }
 
 static esp_err_t wifi_reset_post_handler(httpd_req_t *req)
@@ -565,30 +590,42 @@ static esp_err_t wifi_reset_post_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
+    err = schedule_delayed_task(restart_task, "restart_task", 2048);
+    if (err != ESP_OK) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to schedule restart");
+        return ESP_FAIL;
+    }
+
     httpd_resp_set_type(req, "application/json");
-    httpd_resp_sendstr(req, "{\"ok\":true,\"restarting\":true}");
-    xTaskCreate(restart_task, "restart_task", 2048, NULL, 5, NULL);
-    return ESP_OK;
+    return httpd_resp_sendstr(req, "{\"ok\":true,\"restarting\":true}");
 }
 
 static esp_err_t reboot_post_handler(httpd_req_t *req)
 {
     app_activity_led_pulse();
 
+    esp_err_t err = schedule_delayed_task(restart_task, "restart_task", 2048);
+    if (err != ESP_OK) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to schedule restart");
+        return ESP_FAIL;
+    }
+
     httpd_resp_set_type(req, "application/json");
-    httpd_resp_sendstr(req, "{\"ok\":true,\"restarting\":true}");
-    xTaskCreate(restart_task, "restart_task", 2048, NULL, 5, NULL);
-    return ESP_OK;
+    return httpd_resp_sendstr(req, "{\"ok\":true,\"restarting\":true}");
 }
 
 static esp_err_t config_reset_post_handler(httpd_req_t *req)
 {
     app_activity_led_pulse();
 
+    esp_err_t err = schedule_delayed_task(reset_config_task, "config_reset_task", 3072);
+    if (err != ESP_OK) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to schedule reset");
+        return ESP_FAIL;
+    }
+
     httpd_resp_set_type(req, "application/json");
-    httpd_resp_sendstr(req, "{\"ok\":true,\"resetting\":true,\"restarting\":true}");
-    xTaskCreate(reset_config_task, "config_reset_task", 3072, NULL, 5, NULL);
-    return ESP_OK;
+    return httpd_resp_sendstr(req, "{\"ok\":true,\"resetting\":true,\"restarting\":true}");
 }
 
 static esp_err_t config_sample_post_handler(httpd_req_t *req)
@@ -629,10 +666,14 @@ static esp_err_t config_sample_post_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
+    err = schedule_delayed_task(restart_task, "restart_task", 2048);
+    if (err != ESP_OK) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to schedule restart");
+        return ESP_FAIL;
+    }
+
     httpd_resp_set_type(req, "application/json");
-    httpd_resp_sendstr(req, "{\"ok\":true,\"restarting\":true}");
-    xTaskCreate(restart_task, "restart_task", 2048, NULL, 5, NULL);
-    return ESP_OK;
+    return httpd_resp_sendstr(req, "{\"ok\":true,\"restarting\":true}");
 }
 
 static esp_err_t update_post_handler(httpd_req_t *req)
@@ -695,10 +736,14 @@ static esp_err_t update_post_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
+    err = schedule_delayed_task(restart_task, "restart_task", 2048);
+    if (err != ESP_OK) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to schedule restart");
+        return ESP_FAIL;
+    }
+
     httpd_resp_set_type(req, "application/json");
-    httpd_resp_sendstr(req, "{\"ok\":true,\"restarting\":true}");
-    xTaskCreate(restart_task, "restart_task", 2048, NULL, 5, NULL);
-    return ESP_OK;
+    return httpd_resp_sendstr(req, "{\"ok\":true,\"restarting\":true}");
 }
 
 esp_err_t app_web_start(void)
@@ -732,7 +777,12 @@ esp_err_t app_web_start(void)
     };
 
     for (size_t i = 0; i < sizeof(routes) / sizeof(routes[0]); i++) {
-        ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &routes[i]), TAG, "Failed to register route");
+        err = httpd_register_uri_handler(server, &routes[i]);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to register route %s: %s", routes[i].uri, esp_err_to_name(err));
+            httpd_stop(server);
+            return err;
+        }
     }
 
     ESP_LOGI(TAG, "Web server started");

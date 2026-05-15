@@ -134,6 +134,10 @@ Added a GitHub Actions release workflow that builds firmware for strict semver t
 
 Licensed the project as GPL-3.0-or-later by adding a root LICENSE file, README license section, OpenAPI license metadata, and WebUI package license metadata. Removed the inherited Espressif CC0 header from `main/main.c` so project-level licensing is no longer contradicted by the old hello-world template header.
 
+## Iteration 15 - Firmware Reliability And Metadata
+
+Fixed firmware reliability issues around JSON escaping, WiFi status synchronization, cached WiFi scans, HTTP server startup cleanup, and restart task scheduling failures. Tightened the ESP-IDF manifest requirement to the current supported v6.0 line, updated the matching dependency lock metadata and README prerequisite, and documented reboot/config-reset server errors in the OpenAPI contract.
+
 # Test Policy
 
 Codex must not run ESP-IDF tests, builds, compile checks, flashes, or automatic ESP-IDF dependency installs. Human developer should run ESP-IDF verification. Frontend-only checks such as `npm run build` may be run when WebUI files are changed and dependencies are already installed.
